@@ -8,6 +8,7 @@ class ClipboardMonitor {
     private var lastChangeCount: Int = 0
     private var timer: DispatchSourceTimer?
     private var modelContext: ModelContext?
+    private var transformEngine: TransformEngine?
 
     let maxItems: Int = 100
 
@@ -23,6 +24,10 @@ class ClipboardMonitor {
 
     func setModelContext(_ context: ModelContext) {
         self.modelContext = context
+    }
+
+    func setTransformEngine(_ engine: TransformEngine) {
+        self.transformEngine = engine
     }
 
     func start() {
@@ -56,14 +61,29 @@ class ClipboardMonitor {
         guard let content = pasteboard.string(forType: .string) else { return }
 
         let sourceApp = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
-        let item = ClipboardItem(
-            content: content,
-            sourceApp: sourceApp,
-            timestamp: Date()
-        )
 
         DispatchQueue.main.async { [weak self] in
             guard let self = self, let context = self.modelContext else { return }
+
+            // Apply transforms if engine is available
+            var transformedContent = content
+            if let engine = self.transformEngine {
+                transformedContent = engine.transform(content, sourceApp: sourceApp)
+            }
+
+            // Update clipboard if content was transformed
+            if transformedContent != content {
+                self.pasteboard.clearContents()
+                self.pasteboard.setString(transformedContent, forType: .string)
+                // Update lastChangeCount to avoid re-polling our own change
+                self.lastChangeCount = self.pasteboard.changeCount
+            }
+
+            let item = ClipboardItem(
+                content: transformedContent,
+                sourceApp: sourceApp,
+                timestamp: Date()
+            )
 
             context.insert(item)
 

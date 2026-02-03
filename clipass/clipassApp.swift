@@ -9,10 +9,11 @@ extension KeyboardShortcuts.Name {
 @main
 struct clipassApp: App {
     @State private var clipboardMonitor = ClipboardMonitor()
+    @State private var transformEngine = TransformEngine()
 
     var body: some Scene {
         MenuBarExtra("clipass", systemImage: "doc.on.clipboard") {
-            ClipboardPopupContainer(monitor: clipboardMonitor)
+            ClipboardPopupContainer(monitor: clipboardMonitor, transformEngine: transformEngine)
         }
         .menuBarExtraStyle(.window)
         .modelContainer(for: [ClipboardItem.self, TransformRule.self])
@@ -21,6 +22,7 @@ struct clipassApp: App {
 
 struct ClipboardPopupContainer: View {
     var monitor: ClipboardMonitor
+    var transformEngine: TransformEngine
     @Environment(\.modelContext) private var modelContext
     @State private var hasSetupMonitor = false
 
@@ -29,6 +31,8 @@ struct ClipboardPopupContainer: View {
             .onAppear {
                 if !hasSetupMonitor {
                     monitor.setModelContext(modelContext)
+                    transformEngine.setModelContext(modelContext)
+                    monitor.setTransformEngine(transformEngine)
                     monitor.start()
                     setupHotkey()
                     hasSetupMonitor = true
