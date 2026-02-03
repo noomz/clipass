@@ -35,6 +35,10 @@ struct ClipboardPopupContainer: View {
                     monitor.setTransformEngine(transformEngine)
                     monitor.start()
                     setupHotkey()
+
+                    // Create default rules on first launch
+                    TransformEngine.createDefaultRulesIfNeeded(context: modelContext)
+
                     hasSetupMonitor = true
                 }
             }
