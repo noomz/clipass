@@ -6,6 +6,14 @@ import KeyboardShortcuts
 struct ClipboardPopup: View {
     var monitor: ClipboardMonitor
     @Query(sort: \ClipboardItem.timestamp, order: .reverse) private var items: [ClipboardItem]
+    @State private var searchText = ""
+
+    private var filteredItems: [ClipboardItem] {
+        if searchText.isEmpty {
+            return items
+        }
+        return items.filter { $0.content.localizedCaseInsensitiveContains(searchText) }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -18,6 +26,11 @@ struct ClipboardPopup: View {
                     .foregroundColor(.secondary)
             }
             .padding()
+
+            TextField("Search...", text: $searchText)
+                .textFieldStyle(.roundedBorder)
+                .padding(.horizontal)
+                .padding(.bottom, 8)
 
             Divider()
 
@@ -32,10 +45,21 @@ struct ClipboardPopup: View {
                     Spacer()
                 }
                 .frame(maxWidth: .infinity)
+            } else if filteredItems.isEmpty {
+                VStack {
+                    Spacer()
+                    Text("No results")
+                        .foregroundColor(.secondary)
+                    Text("Try a different search term")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity)
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 4) {
-                        ForEach(items) { item in
+                        ForEach(filteredItems) { item in
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(item.content.prefix(50) + (item.content.count > 50 ? "..." : ""))
                                     .lineLimit(1)
