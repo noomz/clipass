@@ -7,8 +7,10 @@ struct ClipboardPopup: View {
     var monitor: ClipboardMonitor
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \ClipboardItem.timestamp, order: .reverse) private var items: [ClipboardItem]
+    @Query private var rules: [TransformRule]
     @State private var searchText = ""
     @State private var showClearAllConfirmation = false
+    @State private var showRulesView = false
 
     private var filteredItems: [ClipboardItem] {
         if searchText.isEmpty {
@@ -23,9 +25,18 @@ struct ClipboardPopup: View {
                 Text("Clipboard History")
                     .font(.headline)
                 Spacer()
-                Text("Items: \(items.count)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+
+                Button(action: { showRulesView = true }) {
+                    HStack(spacing: 2) {
+                        Image(systemName: "wand.and.stars")
+                        if !rules.isEmpty {
+                            Text("\(rules.count)")
+                                .font(.caption2)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+                .help("Transform Rules")
             }
             .padding()
 
@@ -99,6 +110,9 @@ struct ClipboardPopup: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This will permanently delete all \(items.count) clipboard items. This action cannot be undone.")
+        }
+        .sheet(isPresented: $showRulesView) {
+            RulesView()
         }
     }
 
