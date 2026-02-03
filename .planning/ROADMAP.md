@@ -15,7 +15,7 @@ None
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
 - [x] **Phase 1: Foundation** - App skeleton, menu bar, clipboard monitoring ✓
-- [ ] **Phase 2: History** - Persistent storage, history UI, search
+- [x] **Phase 2: History** - Persistent storage, history UI, search ✓
 - [ ] **Phase 3: Transforms** - Rule engine, regex transforms, app-specific rules
 - [ ] **Phase 4: Hooks** - External triggers, event system
 
@@ -39,8 +39,8 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 02-01: History storage and popup UI
-- [ ] 02-02: Search and quick paste
+- [x] 02-01: History storage and popup UI ✓
+- [x] 02-02: Search and quick paste ✓
 
 ### Phase 3: Transforms
 **Goal**: Rule engine that auto-transforms clipboard content based on patterns or source app
@@ -70,6 +70,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 2/2 | Complete | 2026-02-03 |
-| 2. History | 0/2 | Not started | - |
+| 2. History | 2/2 | Complete | 2026-02-03 |
 | 3. Transforms | 0/2 | Not started | - |
 | 4. Hooks | 0/1 | Not started | - |
