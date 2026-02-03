@@ -12,14 +12,28 @@ struct clipassApp: App {
 
     var body: some Scene {
         MenuBarExtra("clipass", systemImage: "doc.on.clipboard") {
-            ClipboardPopup(monitor: clipboardMonitor)
-                .onAppear {
-                    clipboardMonitor.start()
-                    setupHotkey()
-                }
+            ClipboardPopupContainer(monitor: clipboardMonitor)
         }
         .menuBarExtraStyle(.window)
         .modelContainer(for: ClipboardItem.self)
+    }
+}
+
+struct ClipboardPopupContainer: View {
+    var monitor: ClipboardMonitor
+    @Environment(\.modelContext) private var modelContext
+    @State private var hasSetupMonitor = false
+
+    var body: some View {
+        ClipboardPopup(monitor: monitor)
+            .onAppear {
+                if !hasSetupMonitor {
+                    monitor.setModelContext(modelContext)
+                    monitor.start()
+                    setupHotkey()
+                    hasSetupMonitor = true
+                }
+            }
     }
 
     private func setupHotkey() {

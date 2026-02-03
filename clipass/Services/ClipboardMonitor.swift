@@ -1,13 +1,15 @@
 import AppKit
 import Observation
+import SwiftData
 
 @Observable
 class ClipboardMonitor {
-    private(set) var history: [ClipboardItem] = []
-
     private let pasteboard = NSPasteboard.general
     private var lastChangeCount: Int = 0
     private var timer: DispatchSourceTimer?
+    private var modelContext: ModelContext?
+
+    let maxItems: Int = 100
 
     private let ignoredTypes = [
         "org.nspasteboard.TransientType",
@@ -17,6 +19,10 @@ class ClipboardMonitor {
 
     init() {
         lastChangeCount = pasteboard.changeCount
+    }
+
+    func setModelContext(_ context: ModelContext) {
+        self.modelContext = context
     }
 
     func start() {
@@ -56,8 +62,30 @@ class ClipboardMonitor {
             timestamp: Date()
         )
 
-        DispatchQueue.main.async {
-            self.history.insert(item, at: 0)
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self, let context = self.modelContext else { return }
+
+            context.insert(item)
+
+            // Prune old items if exceeding maxItems
+            self.pruneOldItems(context: context)
+
+            try? context.save()
+        }
+    }
+
+    private func pruneOldItems(context: ModelContext) {
+        let descriptor = FetchDescriptor<ClipboardItem>(
+            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+        )
+
+        guard let allItems = try? context.fetch(descriptor) else { return }
+
+        if allItems.count > maxItems {
+            let itemsToDelete = allItems.suffix(from: maxItems)
+            for item in itemsToDelete {
+                context.delete(item)
+            }
         }
     }
 }
