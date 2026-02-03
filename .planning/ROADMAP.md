@@ -16,7 +16,7 @@ None
 
 - [x] **Phase 1: Foundation** - App skeleton, menu bar, clipboard monitoring ✓
 - [x] **Phase 2: History** - Persistent storage, history UI, search ✓
-- [ ] **Phase 3: Transforms** - Rule engine, regex transforms, app-specific rules
+- [x] **Phase 3: Transforms** - Rule engine, regex transforms, app-specific rules ✓
 - [ ] **Phase 4: Hooks** - External triggers, event system
 
 ## Phase Details
@@ -49,8 +49,8 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 03-01: Transform rule engine
-- [ ] 03-02: App-specific rules and config
+- [x] 03-01: Transform rule engine ✓
+- [x] 03-02: Rules UI and default rules ✓
 
 ### Phase 4: Hooks
 **Goal**: External triggers that fire scripts/apps on clipboard events
@@ -71,5 +71,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Foundation | 2/2 | Complete | 2026-02-03 |
 | 2. History | 2/2 | Complete | 2026-02-03 |
-| 3. Transforms | 0/2 | Not started | - |
+| 3. Transforms | 2/2 | Complete | 2026-02-03 |
 | 4. Hooks | 0/1 | Not started | - |
