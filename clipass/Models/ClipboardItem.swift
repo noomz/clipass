@@ -1,10 +1,12 @@
 import Foundation
+import SwiftData
 
-struct ClipboardItem: Identifiable {
-    let id: UUID
-    let content: String
-    let sourceApp: String?
-    let timestamp: Date
+@Model
+class ClipboardItem {
+    var id: UUID
+    var content: String
+    var sourceApp: String?
+    var timestamp: Date
 
     init(id: UUID = UUID(), content: String, sourceApp: String? = nil, timestamp: Date = Date()) {
         self.id = id

@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 import KeyboardShortcuts
 
 extension KeyboardShortcuts.Name {
@@ -18,6 +19,7 @@ struct clipassApp: App {
                 }
         }
         .menuBarExtraStyle(.window)
+        .modelContainer(for: ClipboardItem.self)
     }
 
     private func setupHotkey() {
