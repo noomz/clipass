@@ -14,7 +14,7 @@ None
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: Foundation** - App skeleton, menu bar, clipboard monitoring
+- [x] **Phase 1: Foundation** - App skeleton, menu bar, clipboard monitoring ✓
 - [ ] **Phase 2: History** - Persistent storage, history UI, search
 - [ ] **Phase 3: Transforms** - Rule engine, regex transforms, app-specific rules
 - [ ] **Phase 4: Hooks** - External triggers, event system
@@ -29,8 +29,8 @@ None
 **Plans**: TBD
 
 Plans:
-- [ ] 01-01: App skeleton with menu bar icon
-- [ ] 01-02: Clipboard monitoring and global hotkey
+- [x] 01-01: App skeleton with menu bar icon ✓
+- [x] 01-02: Clipboard monitoring and global hotkey ✓
 
 ### Phase 2: History
 **Goal**: Persistent clipboard history with searchable popup UI
@@ -69,7 +69,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/2 | Not started | - |
+| 1. Foundation | 2/2 | Complete | 2026-02-03 |
 | 2. History | 0/2 | Not started | - |
 | 3. Transforms | 0/2 | Not started | - |
 | 4. Hooks | 0/1 | Not started | - |
