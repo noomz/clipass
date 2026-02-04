@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-03)
 
 **Core value:** Smart transforms — auto-cleaning and formatting clipboard content before paste
-**Current focus:** Phase 3 — Transforms (complete)
+**Current focus:** Phase 4 — Hooks (in progress)
 
 ## Current Position
 
-Phase: 3 of 4 (Transforms)
-Plan: 2 of 2 in current phase
-Status: Phase complete
-Last activity: 2026-02-03 — Completed 03-02-PLAN.md
+Phase: 4 of 4 (Hooks)
+Plan: 1 of 2 in current phase
+Status: Plan 04-01 complete
+Last activity: 2026-02-04 — Completed 04-01-PLAN.md
 
-Progress: ██████████ 86% (6/7 plans)
+Progress: ██████████ 88% (7/8 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
+- Total plans completed: 7
 - Average duration: ~5 min
-- Total execution time: ~30 min
+- Total execution time: ~38 min
 
 **By Phase:**
 
@@ -30,9 +30,10 @@ Progress: ██████████ 86% (6/7 plans)
 | 1. Foundation | 2/2 | ~10 min | ~5 min |
 | 2. History | 2/2 | ~10 min | ~5 min |
 | 3. Transforms | 2/2 | ~10 min | ~5 min |
+| 4. Hooks | 1/2 | ~8 min | ~8 min |
 
 **Recent Trend:**
-- Last 5 plans: 02-01, 02-02, 03-01, 03-02
+- Last 5 plans: 02-02, 03-01, 03-02, 04-01
 - Trend: Fast execution
 
 ## Accumulated Context
@@ -54,6 +55,9 @@ Recent decisions affecting current work:
 - **Phase 3:** TransformEngine applies rules and updates clipboard
 - **Phase 3:** Default rules: strip trailing whitespace, normalize line endings
 - **Phase 3:** Rules UI with add/edit/delete/toggle/reset
+- **Phase 4:** Hook SwiftData model for external command automation
+- **Phase 4:** HookEngine service with fire-and-forget async execution
+- **Phase 4:** Environment variables CLIPASS_CONTENT and CLIPASS_SOURCE_APP
 
 ### Deferred Issues
 
@@ -69,6 +73,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-03
-Stopped at: Phase 3 complete, ready for Phase 4 planning
+Last session: 2026-02-04
+Stopped at: Phase 4 plan 01 complete, ready for plan 04-02 (Hooks UI)
 Resume file: None

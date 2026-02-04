@@ -60,7 +60,8 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 04-01: Hook system and external triggers
+- [x] 04-01: Hook system and external triggers
+- [ ] 04-02: Hooks UI
 
 ## Progress
 
@@ -72,4 +73,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Foundation | 2/2 | Complete | 2026-02-03 |
 | 2. History | 2/2 | Complete | 2026-02-03 |
 | 3. Transforms | 2/2 | Complete | 2026-02-03 |
-| 4. Hooks | 0/1 | Not started | - |
+| 4. Hooks | 1/2 | In progress | - |
