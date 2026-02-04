@@ -8,9 +8,11 @@ struct ClipboardPopup: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \ClipboardItem.timestamp, order: .reverse) private var items: [ClipboardItem]
     @Query private var rules: [TransformRule]
+    @Query private var hooks: [Hook]
     @State private var searchText = ""
     @State private var showClearAllConfirmation = false
     @State private var showRulesView = false
+    @State private var showHooksView = false
 
     private var filteredItems: [ClipboardItem] {
         if searchText.isEmpty {
@@ -37,6 +39,18 @@ struct ClipboardPopup: View {
                 }
                 .buttonStyle(.plain)
                 .help("Transform Rules")
+
+                Button(action: { showHooksView = true }) {
+                    HStack(spacing: 2) {
+                        Image(systemName: "bolt")
+                        if !hooks.isEmpty {
+                            Text("\(hooks.count)")
+                                .font(.caption2)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+                .help("Automation Hooks")
             }
             .padding()
 
@@ -113,6 +127,9 @@ struct ClipboardPopup: View {
         }
         .sheet(isPresented: $showRulesView) {
             RulesView()
+        }
+        .sheet(isPresented: $showHooksView) {
+            HooksView()
         }
     }
 
