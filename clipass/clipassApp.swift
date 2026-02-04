@@ -16,7 +16,7 @@ struct clipassApp: App {
             ClipboardPopupContainer(monitor: clipboardMonitor, transformEngine: transformEngine)
         }
         .menuBarExtraStyle(.window)
-        .modelContainer(for: [ClipboardItem.self, TransformRule.self])
+        .modelContainer(for: [ClipboardItem.self, TransformRule.self, Hook.self])
     }
 }
 
