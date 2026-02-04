@@ -9,6 +9,7 @@ class ClipboardMonitor {
     private var timer: DispatchSourceTimer?
     private var modelContext: ModelContext?
     private var transformEngine: TransformEngine?
+    private var hookEngine: HookEngine?
 
     let maxItems: Int = 100
 
@@ -28,6 +29,10 @@ class ClipboardMonitor {
 
     func setTransformEngine(_ engine: TransformEngine) {
         self.transformEngine = engine
+    }
+
+    func setHookEngine(_ engine: HookEngine) {
+        self.hookEngine = engine
     }
 
     func start() {
@@ -91,6 +96,9 @@ class ClipboardMonitor {
             self.pruneOldItems(context: context)
 
             try? context.save()
+
+            // Execute hooks after save
+            self.hookEngine?.executeHooks(content: transformedContent, sourceApp: sourceApp)
         }
     }
 
