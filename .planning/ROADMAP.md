@@ -17,7 +17,7 @@ None
 - [x] **Phase 1: Foundation** - App skeleton, menu bar, clipboard monitoring ✓
 - [x] **Phase 2: History** - Persistent storage, history UI, search ✓
 - [x] **Phase 3: Transforms** - Rule engine, regex transforms, app-specific rules ✓
-- [ ] **Phase 4: Hooks** - External triggers, event system
+- [x] **Phase 4: Hooks** - External triggers, event system ✓
 
 ## Phase Details
 
@@ -60,8 +60,8 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [x] 04-01: Hook system and external triggers
-- [ ] 04-02: Hooks UI
+- [x] 04-01: Hook system and external triggers ✓
+- [x] 04-02: Hooks UI ✓
 
 ## Progress
 
@@ -73,4 +73,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Foundation | 2/2 | Complete | 2026-02-03 |
 | 2. History | 2/2 | Complete | 2026-02-03 |
 | 3. Transforms | 2/2 | Complete | 2026-02-03 |
-| 4. Hooks | 1/2 | In progress | - |
+| 4. Hooks | 2/2 | Complete | 2026-02-04 |
