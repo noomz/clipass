@@ -3,26 +3,20 @@ import SwiftData
 
 struct RulesView: View {
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
     @Query(sort: \TransformRule.order) private var rules: [TransformRule]
-    @State private var showAddRule = false
-    @State private var selectedRule: TransformRule?
     @State private var showResetConfirmation = false
+    @State private var showAddSheet = false
+    @State private var editingRule: TransformRule?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Button(action: { dismiss() }) {
-                    Image(systemName: "chevron.left")
-                }
-                .buttonStyle(.plain)
-
                 Text("Transform Rules")
                     .font(.headline)
 
                 Spacer()
 
-                Button(action: { showAddRule = true }) {
+                Button(action: { showAddSheet = true }) {
                     Image(systemName: "plus")
                 }
                 .buttonStyle(.plain)
@@ -47,7 +41,7 @@ struct RulesView: View {
                     LazyVStack(alignment: .leading, spacing: 4) {
                         ForEach(rules) { rule in
                             RuleRow(rule: rule) {
-                                selectedRule = rule
+                                editingRule = rule
                             } onDelete: {
                                 deleteRule(rule)
                             }
@@ -67,13 +61,6 @@ struct RulesView: View {
             }
             .padding()
         }
-        .frame(width: 300, height: 350)
-        .sheet(isPresented: $showAddRule) {
-            RuleEditorView(rule: nil)
-        }
-        .sheet(item: $selectedRule) { rule in
-            RuleEditorView(rule: rule)
-        }
         .confirmationDialog(
             "Reset to Default Rules",
             isPresented: $showResetConfirmation,
@@ -85,6 +72,12 @@ struct RulesView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This will delete all custom rules and restore the default rules.")
+        }
+        .sheet(isPresented: $showAddSheet) {
+            RuleEditorView(rule: nil)
+        }
+        .sheet(item: $editingRule) { rule in
+            RuleEditorView(rule: rule)
         }
     }
 

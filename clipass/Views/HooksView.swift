@@ -3,25 +3,19 @@ import SwiftData
 
 struct HooksView: View {
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
     @Query(sort: \Hook.order) private var hooks: [Hook]
-    @State private var showAddHook = false
-    @State private var selectedHook: Hook?
+    @State private var showAddSheet = false
+    @State private var editingHook: Hook?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Button(action: { dismiss() }) {
-                    Image(systemName: "chevron.left")
-                }
-                .buttonStyle(.plain)
-
                 Text("Automation Hooks")
                     .font(.headline)
 
                 Spacer()
 
-                Button(action: { showAddHook = true }) {
+                Button(action: { showAddSheet = true }) {
                     Image(systemName: "plus")
                 }
                 .buttonStyle(.plain)
@@ -46,7 +40,7 @@ struct HooksView: View {
                     LazyVStack(alignment: .leading, spacing: 4) {
                         ForEach(hooks) { hook in
                             HookRow(hook: hook) {
-                                selectedHook = hook
+                                editingHook = hook
                             } onDelete: {
                                 deleteHook(hook)
                             }
@@ -55,11 +49,10 @@ struct HooksView: View {
                 }
             }
         }
-        .frame(width: 300, height: 350)
-        .sheet(isPresented: $showAddHook) {
+        .sheet(isPresented: $showAddSheet) {
             HookEditorView(hook: nil)
         }
-        .sheet(item: $selectedHook) { hook in
+        .sheet(item: $editingHook) { hook in
             HookEditorView(hook: hook)
         }
     }
