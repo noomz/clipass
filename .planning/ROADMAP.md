@@ -4,84 +4,29 @@
 
 Build a macOS menu bar clipboard manager with intelligent transforms. Start with the foundation (menu bar shell + clipboard monitoring), add persistent history with search, implement the transform rule engine, then wire up external hooks and automations.
 
-## Domain Expertise
+## Milestones
 
-None
+- [v1.0 MVP](milestones/v1.0-ROADMAP.md) — Phases 1-5 (shipped 2026-02-05)
 
-## Phases
+## Completed Milestones
 
-**Phase Numbering:**
-- Integer phases (1, 2, 3): Planned milestone work
-- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
+<details>
+<summary>v1.0 MVP (Phases 1-5) — SHIPPED 2026-02-05</summary>
 
-- [x] **Phase 1: Foundation** - App skeleton, menu bar, clipboard monitoring ✓
-- [x] **Phase 2: History** - Persistent storage, history UI, search ✓
-- [x] **Phase 3: Transforms** - Rule engine, regex transforms, app-specific rules ✓
-- [x] **Phase 4: Hooks** - External triggers, event system ✓
-- [x] **Phase 5: Settings Window** - Dedicated settings window for rules and hooks configuration ✓
+- [x] Phase 1: Foundation (2/2 plans) — completed 2026-02-03
+- [x] Phase 2: History (2/2 plans) — completed 2026-02-03
+- [x] Phase 3: Transforms (2/2 plans) — completed 2026-02-03
+- [x] Phase 4: Hooks (2/2 plans) — completed 2026-02-04
+- [x] Phase 5: Settings Window (1/1 plan) — completed 2026-02-05
 
-## Phase Details
-
-### Phase 1: Foundation
-**Goal**: Working menu bar app that monitors clipboard and captures text content
-**Depends on**: Nothing (first phase)
-**Research**: Likely (macOS clipboard APIs, menu bar patterns)
-**Research topics**: NSPasteboard monitoring, menu bar app setup in SwiftUI, global hotkey registration
-**Plans**: TBD
-
-Plans:
-- [x] 01-01: App skeleton with menu bar icon ✓
-- [x] 01-02: Clipboard monitoring and global hotkey ✓
-
-### Phase 2: History
-**Goal**: Persistent clipboard history with searchable popup UI
-**Depends on**: Phase 1
-**Research**: Unlikely (internal patterns, standard persistence)
-**Plans**: TBD
-
-Plans:
-- [x] 02-01: History storage and popup UI ✓
-- [x] 02-02: Search and quick paste ✓
-
-### Phase 3: Transforms
-**Goal**: Rule engine that auto-transforms clipboard content based on patterns or source app
-**Depends on**: Phase 2
-**Research**: Unlikely (regex processing, internal rule engine)
-**Plans**: TBD
-
-Plans:
-- [x] 03-01: Transform rule engine ✓
-- [x] 03-02: Rules UI and default rules ✓
-
-### Phase 4: Hooks
-**Goal**: External triggers that fire scripts/apps on clipboard events
-**Depends on**: Phase 3
-**Research**: Likely (external process launching, event patterns)
-**Research topics**: Process launching APIs, macOS sandboxing implications, NSWorkspace
-**Plans**: TBD
-
-Plans:
-- [x] 04-01: Hook system and external triggers ✓
-- [x] 04-02: Hooks UI ✓
-
-### Phase 5: Settings Window
-**Goal**: Move rules and hooks configuration from popup to a dedicated Settings window
-**Depends on**: Phase 4
-**Research**: Unlikely (standard macOS Settings scene)
-**Plans**: TBD
-
-Plans:
-- [x] 05-01: Settings window with rules and hooks tabs ✓
+</details>
 
 ## Progress
 
-**Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
-
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Foundation | 2/2 | Complete | 2026-02-03 |
-| 2. History | 2/2 | Complete | 2026-02-03 |
-| 3. Transforms | 2/2 | Complete | 2026-02-03 |
-| 4. Hooks | 2/2 | Complete | 2026-02-04 |
-| 5. Settings Window | 1/1 | Complete | 2026-02-05 |
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 1. Foundation | v1.0 | 2/2 | Complete | 2026-02-03 |
+| 2. History | v1.0 | 2/2 | Complete | 2026-02-03 |
+| 3. Transforms | v1.0 | 2/2 | Complete | 2026-02-03 |
+| 4. Hooks | v1.0 | 2/2 | Complete | 2026-02-04 |
+| 5. Settings Window | v1.0 | 1/1 | Complete | 2026-02-05 |

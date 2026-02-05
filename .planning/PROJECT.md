@@ -2,27 +2,43 @@
 
 ## What This Is
 
-A macOS menu bar app for intelligent clipboard management. Access via menu bar icon or keyboard shortcut to browse clipboard history, apply smart transforms, and trigger automations. Text-only and local-first.
+A macOS menu bar app for intelligent clipboard management. Access via menu bar icon or Cmd+Shift+V to browse clipboard history, apply smart transforms, and trigger automations. Text-only and local-first.
 
 ## Core Value
 
 Smart transforms — auto-cleaning and formatting clipboard content before paste. The intelligence layer that makes this more than just clipboard history.
 
+## Current State
+
+**Version:** v1.0 MVP (shipped 2026-02-05)
+
+**Codebase:** 1,391 lines of Swift across 14 files
+
+**Tech stack:** Swift/SwiftUI, SwiftData, KeyboardShortcuts
+
+**What's working:**
+- Menu bar popup with clipboard history (100 items max)
+- Global hotkey Cmd+Shift+V
+- Real-time search filtering
+- Transform rules with regex patterns
+- External hooks for automation scripts
+- Dedicated Settings window
+
 ## Requirements
 
 ### Validated
 
-(None yet — ship to validate)
+- Clipboard history storage and recall — v1.0
+- Menu bar icon with popup UI — v1.0
+- Global keyboard shortcut to summon — v1.0
+- Transform rules (regex replacements) — v1.0
+- Auto-format on paste (strip trailing whitespace) — v1.0
+- External triggers on clipboard change — v1.0
+- App-specific behavior based on source — v1.0
 
 ### Active
 
-- [ ] Clipboard history storage and recall
-- [ ] Menu bar icon with popup UI
-- [ ] Global keyboard shortcut to summon
-- [ ] Transform rules (regex replacements, formatters)
-- [ ] Auto-format on paste (e.g., remove trailing whitespace `\s+$` from terminal)
-- [ ] External triggers on clipboard change (run scripts/apps)
-- [ ] App-specific behavior based on source application
+(None — all v1.0 requirements shipped)
 
 ### Out of Scope
 
@@ -44,9 +60,13 @@ Common use case: copying from Terminal includes trailing whitespace that breaks 
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Text-only v1 | Simplifies transform logic, rich media adds complexity | — Pending |
-| Local-only v1 | Sync is a major feature, ship core value first | — Pending |
-| Swift/SwiftUI | Native performance, system integration, modern Apple stack | — Pending |
+| Text-only v1 | Simplifies transform logic, rich media adds complexity | Good |
+| Local-only v1 | Sync is a major feature, ship core value first | Good |
+| Swift/SwiftUI | Native performance, system integration, modern Apple stack | Good |
+| MenuBarExtra .window style | Enables custom popup UI vs standard menu | Good |
+| 500ms polling interval | Balance between responsiveness and efficiency | Good |
+| SwiftData for persistence | Modern Apple persistence, SQLite backend | Good |
+| Window scene for Settings | Appears in app switcher (Settings scene doesn't) | Good |
 
 ---
-*Last updated: 2026-02-03 after initialization*
+*Last updated: 2026-02-05 after v1.0 milestone*
