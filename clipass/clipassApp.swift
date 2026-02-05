@@ -60,9 +60,10 @@ struct clipassApp: App {
         }
         .menuBarExtraStyle(.window)
 
-        Settings {
+        Window("Settings", id: "settings") {
             SettingsView()
                 .modelContext(services.modelContainer.mainContext)
         }
+        .windowResizability(.contentSize)
     }
 }

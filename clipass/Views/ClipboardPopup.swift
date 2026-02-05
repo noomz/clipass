@@ -6,11 +6,11 @@ import KeyboardShortcuts
 struct ClipboardPopup: View {
     var monitor: ClipboardMonitor
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.openWindow) private var openWindow
     @Query(sort: \ClipboardItem.timestamp, order: .reverse) private var items: [ClipboardItem]
     @Query private var rules: [TransformRule]
     @Query private var hooks: [Hook]
     @State private var searchText = ""
-    @State private var showClearAllConfirmation = false
 
     private var filteredItems: [ClipboardItem] {
         if searchText.isEmpty {
@@ -26,7 +26,9 @@ struct ClipboardPopup: View {
                     .font(.headline)
                 Spacer()
 
-                Button(action: openSettings) {
+                Button {
+                    openSettingsAndActivate()
+                } label: {
                     HStack(spacing: 2) {
                         Image(systemName: "wand.and.stars")
                         if !rules.isEmpty {
@@ -38,7 +40,9 @@ struct ClipboardPopup: View {
                 .buttonStyle(.plain)
                 .help("Transform Rules")
 
-                Button(action: openSettings) {
+                Button {
+                    openSettingsAndActivate()
+                } label: {
                     HStack(spacing: 2) {
                         Image(systemName: "bolt")
                         if !hooks.isEmpty {
@@ -98,7 +102,7 @@ struct ClipboardPopup: View {
             HStack {
                 if !items.isEmpty {
                     Button("Clear All") {
-                        showClearAllConfirmation = true
+                        clearAllItems()
                     }
                     .foregroundColor(.red)
                 }
@@ -111,22 +115,11 @@ struct ClipboardPopup: View {
             .padding()
         }
         .frame(width: 300, height: 350)
-        .confirmationDialog(
-            "Clear All History",
-            isPresented: $showClearAllConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Clear All", role: .destructive) {
-                clearAllItems()
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This will permanently delete all \(items.count) clipboard items. This action cannot be undone.")
-        }
     }
 
-    private func openSettings() {
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+    private func openSettingsAndActivate() {
+        openWindow(id: "settings")
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     private func deleteItem(_ item: ClipboardItem) {
