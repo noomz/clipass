@@ -11,8 +11,6 @@ struct ClipboardPopup: View {
     @Query private var hooks: [Hook]
     @State private var searchText = ""
     @State private var showClearAllConfirmation = false
-    @State private var showRulesView = false
-    @State private var showHooksView = false
 
     private var filteredItems: [ClipboardItem] {
         if searchText.isEmpty {
@@ -28,7 +26,7 @@ struct ClipboardPopup: View {
                     .font(.headline)
                 Spacer()
 
-                Button(action: { showRulesView = true }) {
+                Button(action: openSettings) {
                     HStack(spacing: 2) {
                         Image(systemName: "wand.and.stars")
                         if !rules.isEmpty {
@@ -40,7 +38,7 @@ struct ClipboardPopup: View {
                 .buttonStyle(.plain)
                 .help("Transform Rules")
 
-                Button(action: { showHooksView = true }) {
+                Button(action: openSettings) {
                     HStack(spacing: 2) {
                         Image(systemName: "bolt")
                         if !hooks.isEmpty {
@@ -125,12 +123,10 @@ struct ClipboardPopup: View {
         } message: {
             Text("This will permanently delete all \(items.count) clipboard items. This action cannot be undone.")
         }
-        .sheet(isPresented: $showRulesView) {
-            RulesView()
-        }
-        .sheet(isPresented: $showHooksView) {
-            HooksView()
-        }
+    }
+
+    private func openSettings() {
+        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
     }
 
     private func deleteItem(_ item: ClipboardItem) {

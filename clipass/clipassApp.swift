@@ -59,5 +59,10 @@ struct clipassApp: App {
                 .modelContext(services.modelContainer.mainContext)
         }
         .menuBarExtraStyle(.window)
+
+        Settings {
+            SettingsView()
+                .modelContext(services.modelContainer.mainContext)
+        }
     }
 }
