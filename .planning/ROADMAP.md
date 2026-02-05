@@ -18,6 +18,7 @@ None
 - [x] **Phase 2: History** - Persistent storage, history UI, search ✓
 - [x] **Phase 3: Transforms** - Rule engine, regex transforms, app-specific rules ✓
 - [x] **Phase 4: Hooks** - External triggers, event system ✓
+- [ ] **Phase 5: Settings Window** - Dedicated settings window for rules and hooks configuration
 
 ## Phase Details
 
@@ -63,10 +64,19 @@ Plans:
 - [x] 04-01: Hook system and external triggers ✓
 - [x] 04-02: Hooks UI ✓
 
+### Phase 5: Settings Window
+**Goal**: Move rules and hooks configuration from popup to a dedicated Settings window
+**Depends on**: Phase 4
+**Research**: Unlikely (standard macOS Settings scene)
+**Plans**: TBD
+
+Plans:
+- [ ] 05-01: Settings window with rules and hooks tabs
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -74,3 +84,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 2. History | 2/2 | Complete | 2026-02-03 |
 | 3. Transforms | 2/2 | Complete | 2026-02-03 |
 | 4. Hooks | 2/2 | Complete | 2026-02-04 |
+| 5. Settings Window | 0/1 | Not started | — |
