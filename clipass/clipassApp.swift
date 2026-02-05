@@ -8,49 +8,50 @@ extension KeyboardShortcuts.Name {
 
 @main
 struct clipassApp: App {
-    @State private var clipboardMonitor = ClipboardMonitor()
-    @State private var transformEngine = TransformEngine()
-    @State private var hookEngine = HookEngine()
+    private let modelContainer: ModelContainer
+    private let clipboardMonitor: ClipboardMonitor
+    private let transformEngine: TransformEngine
+    private let hookEngine: HookEngine
 
-    var body: some Scene {
-        MenuBarExtra("clipass", systemImage: "doc.on.clipboard") {
-            ClipboardPopupContainer(monitor: clipboardMonitor, transformEngine: transformEngine, hookEngine: hookEngine)
-        }
-        .menuBarExtraStyle(.window)
-        .modelContainer(for: [ClipboardItem.self, TransformRule.self, Hook.self])
-    }
-}
+    init() {
+        // Create model container
+        let container = try! ModelContainer(for: ClipboardItem.self, TransformRule.self, Hook.self)
+        self.modelContainer = container
 
-struct ClipboardPopupContainer: View {
-    var monitor: ClipboardMonitor
-    var transformEngine: TransformEngine
-    var hookEngine: HookEngine
-    @Environment(\.modelContext) private var modelContext
-    @State private var hasSetupMonitor = false
+        // Create services
+        let monitor = ClipboardMonitor()
+        let transform = TransformEngine()
+        let hook = HookEngine()
 
-    var body: some View {
-        ClipboardPopup(monitor: monitor)
-            .onAppear {
-                if !hasSetupMonitor {
-                    monitor.setModelContext(modelContext)
-                    transformEngine.setModelContext(modelContext)
-                    hookEngine.setModelContext(modelContext)
-                    monitor.setTransformEngine(transformEngine)
-                    monitor.setHookEngine(hookEngine)
-                    monitor.start()
-                    setupHotkey()
+        // Set up contexts
+        let context = container.mainContext
+        monitor.setModelContext(context)
+        transform.setModelContext(context)
+        hook.setModelContext(context)
+        monitor.setTransformEngine(transform)
+        monitor.setHookEngine(hook)
 
-                    // Create default rules on first launch
-                    TransformEngine.createDefaultRulesIfNeeded(context: modelContext)
+        // Create default rules on first launch
+        TransformEngine.createDefaultRulesIfNeeded(context: context)
 
-                    hasSetupMonitor = true
-                }
-            }
-    }
+        // Start monitoring immediately
+        monitor.start()
 
-    private func setupHotkey() {
+        // Set up global hotkey
         KeyboardShortcuts.onKeyUp(for: .toggleClipboard) {
             NSApp.activate(ignoringOtherApps: true)
         }
+
+        self.clipboardMonitor = monitor
+        self.transformEngine = transform
+        self.hookEngine = hook
+    }
+
+    var body: some Scene {
+        MenuBarExtra("clipass", systemImage: "doc.on.clipboard") {
+            ClipboardPopup(monitor: clipboardMonitor)
+        }
+        .menuBarExtraStyle(.window)
+        .modelContainer(modelContainer)
     }
 }
