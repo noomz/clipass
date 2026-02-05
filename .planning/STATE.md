@@ -71,19 +71,9 @@ None yet.
 
 ### Blockers/Concerns
 
-**Critical bugs found during 2026-02-05 session:**
-
-1. **Monitor only starts on popup open** - ClipboardMonitor.start() is called in onAppear, so user must click menu bar icon before any clipboard monitoring happens. Attempted fix broke things further.
-
-2. **Copy-from-history creates duplicates** - When clicking an item in history to copy it, the monitor detects it as a new clipboard change and adds a duplicate entry.
-
-3. **Clipboard monitoring unreliable** - Even after opening popup, clipboard changes sometimes not detected. Root cause unclear - debugging showed poll() detecting changes and inserting items, but UI not updating.
-
-**Next session should:**
-- Investigate why @Query in ClipboardPopup isn't updating when items are inserted
-- Consider alternative clipboard monitoring approach (NSPasteboard notifications vs polling)
-- Fix monitor to start on app launch, not popup open
-- Add duplicate detection for copy-from-history
+None. Previous bugs fixed on 2026-02-05:
+- ✓ Monitor now starts on app launch (moved init to App struct)
+- ✓ Copy-from-history no longer creates duplicates (added content comparison)
 
 ## Session Continuity
 

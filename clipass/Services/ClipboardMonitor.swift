@@ -84,6 +84,18 @@ class ClipboardMonitor {
                 self.lastChangeCount = self.pasteboard.changeCount
             }
 
+            // Skip duplicate: check if most recent item has same content
+            let descriptor = FetchDescriptor<ClipboardItem>(
+                sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+            )
+            var fetchDescriptor = descriptor
+            fetchDescriptor.fetchLimit = 1
+            if let recentItems = try? context.fetch(fetchDescriptor),
+               let mostRecent = recentItems.first,
+               mostRecent.content == transformedContent {
+                return // Skip duplicate
+            }
+
             let item = ClipboardItem(
                 content: transformedContent,
                 sourceApp: sourceApp,
