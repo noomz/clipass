@@ -6,7 +6,6 @@ import SwiftData
 class ClipboardMonitor {
     private let pasteboard = NSPasteboard.general
     private var lastChangeCount: Int = 0
-    private var lastSavedContent: String?
     private var timer: DispatchSourceTimer?
     private var modelContext: ModelContext?
     private var transformEngine: TransformEngine?
@@ -85,11 +84,6 @@ class ClipboardMonitor {
                 self.lastChangeCount = self.pasteboard.changeCount
             }
 
-            // Skip duplicate - likely copied from history
-            if transformedContent == self.lastSavedContent {
-                return
-            }
-
             let item = ClipboardItem(
                 content: transformedContent,
                 sourceApp: sourceApp,
@@ -97,7 +91,6 @@ class ClipboardMonitor {
             )
 
             context.insert(item)
-            self.lastSavedContent = transformedContent
 
             // Prune old items if exceeding maxItems
             self.pruneOldItems(context: context)

@@ -8,50 +8,49 @@ extension KeyboardShortcuts.Name {
 
 @main
 struct clipassApp: App {
-    private let modelContainer: ModelContainer
-    private let clipboardMonitor: ClipboardMonitor
-    private let transformEngine: TransformEngine
-    private let hookEngine: HookEngine
-
-    init() {
-        // Create model container
-        let container = try! ModelContainer(for: ClipboardItem.self, TransformRule.self, Hook.self)
-        self.modelContainer = container
-
-        // Create services
-        let monitor = ClipboardMonitor()
-        let transform = TransformEngine()
-        let hook = HookEngine()
-
-        // Set up contexts
-        let context = container.mainContext
-        monitor.setModelContext(context)
-        transform.setModelContext(context)
-        hook.setModelContext(context)
-        monitor.setTransformEngine(transform)
-        monitor.setHookEngine(hook)
-
-        // Create default rules on first launch
-        TransformEngine.createDefaultRulesIfNeeded(context: context)
-
-        // Start monitoring immediately
-        monitor.start()
-
-        // Set up global hotkey
-        KeyboardShortcuts.onKeyUp(for: .toggleClipboard) {
-            NSApp.activate(ignoringOtherApps: true)
-        }
-
-        self.clipboardMonitor = monitor
-        self.transformEngine = transform
-        self.hookEngine = hook
-    }
+    @State private var clipboardMonitor = ClipboardMonitor()
+    @State private var transformEngine = TransformEngine()
+    @State private var hookEngine = HookEngine()
 
     var body: some Scene {
         MenuBarExtra("clipass", systemImage: "doc.on.clipboard") {
-            ClipboardPopup(monitor: clipboardMonitor)
+            ClipboardPopupContainer(monitor: clipboardMonitor, transformEngine: transformEngine, hookEngine: hookEngine)
         }
         .menuBarExtraStyle(.window)
-        .modelContainer(modelContainer)
+        .modelContainer(for: [ClipboardItem.self, TransformRule.self, Hook.self])
+    }
+}
+
+struct ClipboardPopupContainer: View {
+    var monitor: ClipboardMonitor
+    var transformEngine: TransformEngine
+    var hookEngine: HookEngine
+    @Environment(\.modelContext) private var modelContext
+    @State private var hasSetupMonitor = false
+
+    var body: some View {
+        ClipboardPopup(monitor: monitor)
+            .onAppear {
+                if !hasSetupMonitor {
+                    monitor.setModelContext(modelContext)
+                    transformEngine.setModelContext(modelContext)
+                    hookEngine.setModelContext(modelContext)
+                    monitor.setTransformEngine(transformEngine)
+                    monitor.setHookEngine(hookEngine)
+                    monitor.start()
+                    setupHotkey()
+
+                    // Create default rules on first launch
+                    TransformEngine.createDefaultRulesIfNeeded(context: modelContext)
+
+                    hasSetupMonitor = true
+                }
+            }
+    }
+
+    private func setupHotkey() {
+        KeyboardShortcuts.onKeyUp(for: .toggleClipboard) {
+            NSApp.activate(ignoringOtherApps: true)
+        }
     }
 }
