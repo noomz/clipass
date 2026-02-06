@@ -13,6 +13,9 @@ class ClipboardMonitor {
 
     let maxItems: Int = 100
 
+    // Cache for compiled regexes to avoid recompilation on every poll
+    private var cachedPatternRegexes: [UUID: Regex<AnyRegexOutput>] = [:]
+
     private let ignoredTypes = [
         "org.nspasteboard.TransientType",
         "org.nspasteboard.ConcealedType",
@@ -21,6 +24,21 @@ class ClipboardMonitor {
 
     init() {
         lastChangeCount = pasteboard.changeCount
+    }
+
+    // Get or compile regex for an IgnoredPattern
+    private func getRegex(for pattern: IgnoredPattern) -> Regex<AnyRegexOutput>? {
+        if let cached = cachedPatternRegexes[pattern.id] {
+            return cached
+        }
+        guard let regex = try? Regex(pattern.pattern) else { return nil }
+        cachedPatternRegexes[pattern.id] = regex
+        return regex
+    }
+
+    // Invalidate cached regexes (call when patterns are modified)
+    func invalidatePatternCache() {
+        cachedPatternRegexes.removeAll()
     }
 
     func setModelContext(_ context: ModelContext) {
@@ -82,6 +100,28 @@ class ClipboardMonitor {
                 self.pasteboard.setString(transformedContent, forType: .string)
                 // Update lastChangeCount to avoid re-polling our own change
                 self.lastChangeCount = self.pasteboard.changeCount
+            }
+
+            // Check ignored apps
+            let appDescriptor = FetchDescriptor<IgnoredApp>()
+            if let ignoredApps = try? context.fetch(appDescriptor),
+               let sourceApp = sourceApp {
+                for ignoredApp in ignoredApps where ignoredApp.isEnabled {
+                    if sourceApp == ignoredApp.bundleId || sourceApp.contains(ignoredApp.bundleId) {
+                        return // Skip ignored app
+                    }
+                }
+            }
+
+            // Check ignored patterns
+            let patternDescriptor = FetchDescriptor<IgnoredPattern>()
+            if let ignoredPatterns = try? context.fetch(patternDescriptor) {
+                for ignoredPattern in ignoredPatterns where ignoredPattern.isEnabled {
+                    if let regex = self.getRegex(for: ignoredPattern),
+                       transformedContent.contains(regex) {
+                        return // Skip content matching ignore pattern
+                    }
+                }
             }
 
             // Skip duplicate: check if most recent item has same content
