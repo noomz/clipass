@@ -2,19 +2,19 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-05)
+See: .planning/PROJECT.md (updated 2026-02-06)
 
 **Core value:** Smart transforms — auto-cleaning and formatting clipboard content before paste
-**Current focus:** v1.0 shipped — planning next milestone
+**Current focus:** v1.1 More Control — defining requirements
 
 ## Current Position
 
-Phase: 5 of 5 (Settings Window)
-Plan: 1 of 1 in current phase
-Status: v1.0 milestone complete
-Last activity: 2026-02-05 — v1.0 MVP shipped
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-06 — Milestone v1.1 started
 
-Progress: ██████████ 100% (9/9 plans)
+Progress: ░░░░░░░░░░ 0%
 
 ## Performance Metrics
 

@@ -24,6 +24,19 @@ Smart transforms — auto-cleaning and formatting clipboard content before paste
 - External hooks for automation scripts
 - Dedicated Settings window
 
+## Current Milestone: v1.1 More Control
+
+**Goal:** Give users full control over filtering, display formatting, and app behavior through Settings.
+
+**Target features:**
+- Configurable ignored app patterns (replace hardcoded list)
+- Content patterns to skip storing (regex)
+- Display formatting (clean invisible chars, truncation length)
+- Sensitive content redaction in preview (emails, passwords masked)
+- History limits (max items, auto-cleanup age)
+- Hotkey customization
+- Start on login option
+
 ## Requirements
 
 ### Validated
@@ -38,7 +51,15 @@ Smart transforms — auto-cleaning and formatting clipboard content before paste
 
 ### Active
 
-(None — all v1.0 requirements shipped)
+- [ ] Configurable ignored app patterns
+- [ ] Content patterns to ignore (regex)
+- [ ] Clean invisible chars in menu preview
+- [ ] Configurable preview truncation length
+- [ ] Sensitive content redaction in preview
+- [ ] History max items setting
+- [ ] History auto-cleanup age setting
+- [ ] Customizable global hotkey
+- [ ] Start on login option
 
 ### Out of Scope
 
@@ -69,4 +90,4 @@ Common use case: copying from Terminal includes trailing whitespace that breaks 
 | Window scene for Settings | Appears in app switcher (Settings scene doesn't) | Good |
 
 ---
-*Last updated: 2026-02-05 after v1.0 milestone*
+*Last updated: 2026-02-06 after v1.1 milestone start*
