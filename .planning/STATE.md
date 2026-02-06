@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-06)
 
 **Core value:** Smart transforms — auto-cleaning and formatting clipboard content before paste
-**Current focus:** v1.1 More Control — defining requirements
+**Current focus:** v1.1 More Control — Phase 6 Filtering
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 6 - Filtering
 Plan: —
-Status: Defining requirements
-Last activity: 2026-02-06 — Milestone v1.1 started
+Status: Ready for plan breakdown
+Last activity: 2026-02-06 — Roadmap created for v1.1
 
 Progress: ░░░░░░░░░░ 0%
 

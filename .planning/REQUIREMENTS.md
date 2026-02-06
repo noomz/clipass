@@ -66,22 +66,22 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FILT-01 | — | Pending |
-| FILT-02 | — | Pending |
-| FILT-03 | — | Pending |
-| DISP-01 | — | Pending |
-| DISP-02 | — | Pending |
-| DISP-03 | — | Pending |
-| BEHV-01 | — | Pending |
-| BEHV-02 | — | Pending |
-| BEHV-03 | — | Pending |
-| BEHV-04 | — | Pending |
+| FILT-01 | Phase 6 | Pending |
+| FILT-02 | Phase 6 | Pending |
+| FILT-03 | Phase 6 | Pending |
+| DISP-01 | Phase 7 | Pending |
+| DISP-02 | Phase 7 | Pending |
+| DISP-03 | Phase 7 | Pending |
+| BEHV-01 | Phase 8 | Pending |
+| BEHV-02 | Phase 8 | Pending |
+| BEHV-03 | Phase 8 | Pending |
+| BEHV-04 | Phase 8 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 10 total
-- Mapped to phases: 0
-- Unmapped: 10
+- Mapped to phases: 10
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-02-06*
-*Last updated: 2026-02-06 after initial definition*
+*Last updated: 2026-02-06 after roadmap creation*
