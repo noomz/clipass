@@ -19,7 +19,7 @@ final class AppServices {
     private var isInitialized = false
 
     private init() {
-        modelContainer = try! ModelContainer(for: ClipboardItem.self, TransformRule.self, Hook.self)
+        modelContainer = try! ModelContainer(for: ClipboardItem.self, TransformRule.self, Hook.self, IgnoredApp.self, IgnoredPattern.self)
 
         // Initialize after a brief delay to ensure main context is ready
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [self] in
