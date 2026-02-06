@@ -9,9 +9,9 @@ Requirements for v1.1 "More Control" milestone. Each maps to roadmap phases.
 
 ### Filtering
 
-- [ ] **FILT-01**: User can view and edit the list of ignored app patterns in Settings
-- [ ] **FILT-02**: User can add content ignore patterns (regex) to skip storing certain clipboard content
-- [ ] **FILT-03**: User can enable/disable individual ignore patterns without deleting them
+- [x] **FILT-01**: User can view and edit the list of ignored app patterns in Settings
+- [x] **FILT-02**: User can add content ignore patterns (regex) to skip storing certain clipboard content
+- [x] **FILT-03**: User can enable/disable individual ignore patterns without deleting them
 
 ### Display
 
@@ -66,9 +66,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FILT-01 | Phase 6 | Pending |
-| FILT-02 | Phase 6 | Pending |
-| FILT-03 | Phase 6 | Pending |
+| FILT-01 | Phase 6 | Complete |
+| FILT-02 | Phase 6 | Complete |
+| FILT-03 | Phase 6 | Complete |
 | DISP-01 | Phase 7 | Pending |
 | DISP-02 | Phase 7 | Pending |
 | DISP-03 | Phase 7 | Pending |
@@ -84,4 +84,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-06*
-*Last updated: 2026-02-06 after roadmap creation*
+*Last updated: 2026-02-06 after Phase 6 complete*

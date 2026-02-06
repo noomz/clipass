@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-06)
 
 **Core value:** Smart transforms — auto-cleaning and formatting clipboard content before paste
-**Current focus:** v1.1 More Control — Phase 6 Filtering
+**Current focus:** v1.1 More Control — Phase 7 Display
 
 ## Current Position
 
-Phase: 6 - Filtering
-Plan: 2 of 3 in current phase
-Status: In progress
-Last activity: 2026-02-06 — Completed 06-02-PLAN.md
+Phase: 6 of 8 complete
+Plan: —
+Status: Phase 6 complete, ready for Phase 7
+Last activity: 2026-02-06 — Phase 6 Filtering complete
 
-Progress: ██░░░░░░░░ 20%
+Progress: ███░░░░░░░ 33% (1/3 phases in v1.1)
 
 ## Performance Metrics
 
@@ -32,7 +32,7 @@ Progress: ██░░░░░░░░ 20%
 | 3. Transforms | 2/2 | ~10 min | ~5 min |
 | 4. Hooks | 2/2 | ~13 min | ~6.5 min |
 | 5. Settings Window | 1/1 | ~4 min | ~4 min |
-| 6. Filtering | 2/3 | ~4 min | ~2 min |
+| 6. Filtering | 2/2 | ~4 min | ~2 min |
 
 ## Accumulated Context
 
