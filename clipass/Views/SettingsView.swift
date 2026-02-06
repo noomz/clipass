@@ -13,6 +13,16 @@ struct SettingsView: View {
                 .tabItem {
                     Label("Hooks", systemImage: "bolt")
                 }
+
+            IgnoredAppsView()
+                .tabItem {
+                    Label("Ignored Apps", systemImage: "xmark.app")
+                }
+
+            IgnoredPatternsView()
+                .tabItem {
+                    Label("Ignore Patterns", systemImage: "slash.circle")
+                }
         }
         .frame(width: 500, height: 400)
     }
