@@ -19,7 +19,7 @@ final class AppServices {
     private var isInitialized = false
 
     private init() {
-        modelContainer = try! ModelContainer(for: ClipboardItem.self, TransformRule.self, Hook.self, IgnoredApp.self, IgnoredPattern.self)
+        modelContainer = try! ModelContainer(for: ClipboardItem.self, TransformRule.self, Hook.self, IgnoredApp.self, IgnoredPattern.self, RedactionPattern.self)
 
         // Initialize after a brief delay to ensure main context is ready
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [self] in
@@ -40,6 +40,7 @@ final class AppServices {
         clipboardMonitor.setHookEngine(hookEngine)
 
         TransformEngine.createDefaultRulesIfNeeded(context: context)
+        DisplayFormatter.createDefaultPatternsIfNeeded(context: context)
 
         clipboardMonitor.start()
 
