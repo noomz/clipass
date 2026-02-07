@@ -10,6 +10,7 @@ struct ClipboardPopup: View {
     @Query(sort: \ClipboardItem.timestamp, order: .reverse) private var items: [ClipboardItem]
     @Query private var rules: [TransformRule]
     @Query private var hooks: [Hook]
+    @Query private var redactionPatterns: [RedactionPattern]
     @State private var searchText = ""
 
     private var filteredItems: [ClipboardItem] {
@@ -89,7 +90,7 @@ struct ClipboardPopup: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 4) {
                         ForEach(filteredItems) { item in
-                            HistoryItemRow(item: item) {
+                            HistoryItemRow(item: item, redactionPatterns: redactionPatterns) {
                                 deleteItem(item)
                             }
                         }

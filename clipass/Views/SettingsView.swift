@@ -23,6 +23,11 @@ struct SettingsView: View {
                 .tabItem {
                     Label("Filtering", systemImage: "line.3.horizontal.decrease.circle")
                 }
+
+            DisplaySettingsView()
+                .tabItem {
+                    Label("Display", systemImage: "text.alignleft")
+                }
         }
         .frame(width: 500, height: 400)
         .onDisappear {

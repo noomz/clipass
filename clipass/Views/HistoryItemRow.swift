@@ -1,15 +1,23 @@
 import SwiftUI
+import SwiftData
 import AppKit
 
 struct HistoryItemRow: View {
     let item: ClipboardItem
+    let redactionPatterns: [RedactionPattern]
     let onDelete: () -> Void
+    
+    @AppStorage("previewMaxLength") private var previewMaxLength = 80
     @State private var isHovered = false
+    
+    private var formattedPreview: String {
+        DisplayFormatter.format(item.content, maxLength: previewMaxLength, patterns: redactionPatterns)
+    }
 
     var body: some View {
         Button(action: copyToClipboard) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(item.content.prefix(50) + (item.content.count > 50 ? "..." : ""))
+                Text(formattedPreview)
                     .lineLimit(1)
                     .font(.body)
                     .foregroundColor(.primary)
