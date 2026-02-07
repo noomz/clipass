@@ -107,7 +107,16 @@ struct ClipboardPopup: View {
                     .foregroundColor(.red)
                 }
                 Spacer()
-                Button("Quit clipass") {
+                Button {
+                    openSettingsAndActivate()
+                } label: {
+                    Image(systemName: "gear")
+                }
+                .buttonStyle(.plain)
+                .help("Settings")
+                .keyboardShortcut(",", modifiers: .command)
+                
+                Button("Quit") {
                     NSApplication.shared.terminate(nil)
                 }
                 .keyboardShortcut("q", modifiers: .command)
@@ -118,8 +127,12 @@ struct ClipboardPopup: View {
     }
 
     private func openSettingsAndActivate() {
+        // Temporarily set activation policy to regular to allow keyboard focus
+        NSApp.setActivationPolicy(.regular)
         openWindow(id: "settings")
-        NSApp.activate(ignoringOtherApps: true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            NSApp.activate(ignoringOtherApps: true)
+        }
     }
 
     private func deleteItem(_ item: ClipboardItem) {
