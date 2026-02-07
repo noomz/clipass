@@ -15,9 +15,9 @@ Requirements for v1.1 "More Control" milestone. Each maps to roadmap phases.
 
 ### Display
 
-- [ ] **DISP-01**: User can configure preview truncation length in Settings
-- [ ] **DISP-02**: Menu preview cleans invisible characters (newlines, tabs shown as symbols or removed)
-- [ ] **DISP-03**: Sensitive content (emails, passwords) is redacted in menu preview but stored in full
+- [x] **DISP-01**: User can configure preview truncation length in Settings
+- [x] **DISP-02**: Menu preview cleans invisible characters (newlines, tabs shown as symbols or removed)
+- [x] **DISP-03**: Sensitive content (emails, passwords) is redacted in menu preview but stored in full
 
 ### App Behavior
 
@@ -69,9 +69,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FILT-01 | Phase 6 | Complete |
 | FILT-02 | Phase 6 | Complete |
 | FILT-03 | Phase 6 | Complete |
-| DISP-01 | Phase 7 | Pending |
-| DISP-02 | Phase 7 | Pending |
-| DISP-03 | Phase 7 | Pending |
+| DISP-01 | Phase 7 | Complete |
+| DISP-02 | Phase 7 | Complete |
+| DISP-03 | Phase 7 | Complete |
 | BEHV-01 | Phase 8 | Pending |
 | BEHV-02 | Phase 8 | Pending |
 | BEHV-03 | Phase 8 | Pending |
@@ -84,4 +84,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-06*
-*Last updated: 2026-02-06 after Phase 6 complete*
+*Last updated: 2026-02-07 after Phase 7 complete*
