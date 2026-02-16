@@ -52,6 +52,7 @@ See PROJECT.md Key Decisions table for full list with outcomes.
 
 - Phase 9 added: Settings dialog tab-like navigation
 - Phase 10 added: Add option to delete clipboard item
+- Phase 11 added: Add context menu actions for clipboard items (translate, execute, etc.)
 
 ### Deferred Issues
 
