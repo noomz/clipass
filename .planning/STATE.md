@@ -51,6 +51,7 @@ See PROJECT.md Key Decisions table for full list with outcomes.
 ### Roadmap Evolution
 
 - Phase 9 added: Settings dialog tab-like navigation
+- Phase 10 added: Add option to delete clipboard item
 
 ### Deferred Issues
 
