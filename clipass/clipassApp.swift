@@ -43,9 +43,37 @@ final class AppServices {
         DisplayFormatter.createDefaultPatternsIfNeeded(context: context)
 
         clipboardMonitor.start()
+        startAutoCleanupTimer()
 
         KeyboardShortcuts.onKeyUp(for: .toggleClipboard) {
             NSApp.activate(ignoringOtherApps: true)
+        }
+    }
+
+    private func startAutoCleanupTimer() {
+        performAutoCleanup()
+        Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.performAutoCleanup()
+            }
+        }
+    }
+
+    private func performAutoCleanup() {
+        let days = UserDefaults.standard.integer(forKey: "autoCleanupDays")
+        guard days > 0 else { return }
+
+        guard let cutoffDate = Calendar.current.date(byAdding: .day, value: -days, to: Date()) else { return }
+        let context = modelContainer.mainContext
+        let predicate = #Predicate<ClipboardItem> { $0.timestamp < cutoffDate }
+        let descriptor = FetchDescriptor<ClipboardItem>(predicate: predicate)
+
+        guard let oldItems = try? context.fetch(descriptor) else { return }
+        for item in oldItems {
+            context.delete(item)
+        }
+        if !oldItems.isEmpty {
+            try? context.save()
         }
     }
 }
