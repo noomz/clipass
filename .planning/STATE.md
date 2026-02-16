@@ -45,6 +45,10 @@ See PROJECT.md Key Decisions table for full list with outcomes.
 - Phase 8: Used .product(name:package:) for LaunchAtLogin-Modern SPM dependency resolution
 - Phase 8: UserDefaults.standard computed property in ClipboardMonitor (not @AppStorage) for non-view reactivity
 
+### Roadmap Evolution
+
+- Phase 9 added: Settings dialog tab-like navigation
+
 ### Deferred Issues
 
 None.
