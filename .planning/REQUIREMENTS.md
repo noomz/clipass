@@ -21,10 +21,10 @@ Requirements for v1.1 "More Control" milestone. Each maps to roadmap phases.
 
 ### App Behavior
 
-- [ ] **BEHV-01**: User can enable/disable "Launch at Login" in Settings
-- [ ] **BEHV-02**: User can configure maximum history items in Settings
-- [ ] **BEHV-03**: User can customize the global hotkey in Settings
-- [ ] **BEHV-04**: User can configure auto-cleanup age (delete items older than X days)
+- [x] **BEHV-01**: User can enable/disable "Launch at Login" in Settings
+- [x] **BEHV-02**: User can configure maximum history items in Settings
+- [x] **BEHV-03**: User can customize the global hotkey in Settings
+- [x] **BEHV-04**: User can configure auto-cleanup age (delete items older than X days)
 
 ## v2 Requirements
 
@@ -72,10 +72,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DISP-01 | Phase 7 | Complete |
 | DISP-02 | Phase 7 | Complete |
 | DISP-03 | Phase 7 | Complete |
-| BEHV-01 | Phase 8 | Pending |
-| BEHV-02 | Phase 8 | Pending |
-| BEHV-03 | Phase 8 | Pending |
-| BEHV-04 | Phase 8 | Pending |
+| BEHV-01 | Phase 8 | Complete |
+| BEHV-02 | Phase 8 | Complete |
+| BEHV-03 | Phase 8 | Complete |
+| BEHV-04 | Phase 8 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 10 total

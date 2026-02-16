@@ -6,7 +6,7 @@ Build a macOS menu bar clipboard manager with intelligent transforms. Start with
 
 ## Milestones
 
-- [v1.1 More Control](milestones/v1.1-ROADMAP.md) — Phases 6-8 (in progress)
+- [v1.1 More Control](milestones/v1.1-ROADMAP.md) — Phases 6-8 (complete)
 - [v1.0 MVP](milestones/v1.0-ROADMAP.md) — Phases 1-5 (shipped 2026-02-05)
 
 ## Completed Milestones
