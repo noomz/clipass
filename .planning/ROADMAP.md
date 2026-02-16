@@ -6,7 +6,7 @@ Build a macOS menu bar clipboard manager with intelligent transforms. Start with
 
 ## Milestones
 
-- [v1.1 More Control](milestones/v1.1-ROADMAP.md) — Phases 6-9 (in progress)
+- [v1.1 More Control](milestones/v1.1-ROADMAP.md) — Phases 6-9 (complete)
 - [v1.0 MVP](milestones/v1.0-ROADMAP.md) — Phases 1-5 (shipped 2026-02-05)
 
 ## Completed Milestones
@@ -35,7 +35,7 @@ Build a macOS menu bar clipboard manager with intelligent transforms. Start with
 | 4. Hooks | v1.0 | 2/2 | Complete | 2026-02-04 |
 | 5. Settings Window | v1.0 | 1/1 | Complete | 2026-02-05 |
 
-| 9. Settings Nav | v1.1 | 0/1 | In Progress | — |
+| 9. Settings Nav | v1.1 | 1/1 | Complete | 2026-02-16 |
 
 ### Phase 9: Settings Navigation
 
@@ -43,4 +43,4 @@ Build a macOS menu bar clipboard manager with intelligent transforms. Start with
 **Plans:** 1 plan
 
 Plans:
-- [ ] 09-01-PLAN.md — Toolbar tab navigation with macOS 15+ Tab API and unified window style
+- [x] 09-01-PLAN.md — Toolbar tab navigation with macOS 15+ Tab API and unified window style
