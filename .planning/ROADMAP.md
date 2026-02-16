@@ -28,7 +28,7 @@ Build a macOS menu bar clipboard manager with intelligent transforms. Start with
 |-------|-----------|----------------|--------|-----------|
 | 6. Filtering | v1.1 | 2/2 | Complete | 2026-02-06 |
 | 7. Display | v1.1 | 2/2 | Complete | 2026-02-07 |
-| 8. App Behavior | v1.1 | 0/1 | Not Started | — |
+| 8. App Behavior | v1.1 | 0/1 | In Progress | — |
 | 1. Foundation | v1.0 | 2/2 | Complete | 2026-02-03 |
 | 2. History | v1.0 | 2/2 | Complete | 2026-02-03 |
 | 3. Transforms | v1.0 | 2/2 | Complete | 2026-02-03 |
