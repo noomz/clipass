@@ -5,36 +5,54 @@ import KeyboardShortcuts
 
 struct SettingsView: View {
     var body: some View {
-        TabView {
-            GeneralSettingsView()
-                .tabItem {
-                    Label("General", systemImage: "gear")
-                }
-
-            RulesView()
-                .tabItem {
-                    Label("Transforms", systemImage: "wand.and.stars")
-                }
-
-            HooksView()
-                .tabItem {
-                    Label("Automation", systemImage: "bolt")
-                }
-
-            FilteringSettingsView()
-                .tabItem {
-                    Label("Filtering", systemImage: "line.3.horizontal.decrease.circle")
-                }
-
-            DisplaySettingsView()
-                .tabItem {
-                    Label("Display", systemImage: "text.alignleft")
-                }
+        Group {
+            if #available(macOS 15.0, *) {
+                tabViewModern
+            } else {
+                tabViewLegacy
+            }
         }
-        .frame(width: 500, height: 400)
+        .frame(width: 550, height: 450)
         .onDisappear {
             // Reset to accessory (menu bar only) when settings closes
             NSApp.setActivationPolicy(.accessory)
+        }
+    }
+
+    @available(macOS 15.0, *)
+    private var tabViewModern: some View {
+        TabView {
+            Tab("General", systemImage: "gear") {
+                GeneralSettingsView()
+            }
+            Tab("Transforms", systemImage: "wand.and.stars") {
+                RulesView()
+            }
+            Tab("Automation", systemImage: "bolt") {
+                HooksView()
+            }
+            Tab("Filtering", systemImage: "line.3.horizontal.decrease.circle") {
+                FilteringSettingsView()
+            }
+            Tab("Display", systemImage: "text.alignleft") {
+                DisplaySettingsView()
+            }
+        }
+        .tabViewStyle(.sidebarAdaptable)
+    }
+
+    private var tabViewLegacy: some View {
+        TabView {
+            GeneralSettingsView()
+                .tabItem { Label("General", systemImage: "gear") }
+            RulesView()
+                .tabItem { Label("Transforms", systemImage: "wand.and.stars") }
+            HooksView()
+                .tabItem { Label("Automation", systemImage: "bolt") }
+            FilteringSettingsView()
+                .tabItem { Label("Filtering", systemImage: "line.3.horizontal.decrease.circle") }
+            DisplaySettingsView()
+                .tabItem { Label("Display", systemImage: "text.alignleft") }
         }
     }
 }
