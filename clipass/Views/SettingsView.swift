@@ -1,5 +1,7 @@
 import SwiftUI
 import SwiftData
+import LaunchAtLogin
+import KeyboardShortcuts
 
 struct SettingsView: View {
     var body: some View {
@@ -37,20 +39,70 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - General Settings (placeholder for Phase 8)
+// MARK: - General Settings
 
 struct GeneralSettingsView: View {
+    @AppStorage("maxHistoryItems") private var maxHistoryItems = 100
+    @AppStorage("autoCleanupDays") private var autoCleanupDays = 0
+    @Environment(\.modelContext) private var modelContext
+
     var body: some View {
         Form {
+            // BEHV-01: Launch at Login
             Section {
-                Text("General settings coming soon...")
-                    .foregroundColor(.secondary)
+                LaunchAtLogin.Toggle()
             } header: {
-                Text("App Behavior")
+                Text("Startup")
+            }
+
+            // BEHV-02: Max history items
+            Section {
+                Stepper("Maximum items: \(maxHistoryItems)",
+                        value: $maxHistoryItems,
+                        in: 10...1000,
+                        step: 10)
+                    .onChange(of: maxHistoryItems) { _, newValue in
+                        pruneToLimit(newValue)
+                    }
+            } header: {
+                Text("History")
+            }
+
+            // BEHV-03: Global hotkey customization
+            Section {
+                KeyboardShortcuts.Recorder("Toggle Clipboard:", name: .toggleClipboard)
+            } header: {
+                Text("Hotkey")
+            }
+
+            // BEHV-04: Auto-cleanup age
+            Section {
+                Picker("Auto-delete items older than:", selection: $autoCleanupDays) {
+                    Text("Never").tag(0)
+                    Text("1 day").tag(1)
+                    Text("7 days").tag(7)
+                    Text("30 days").tag(30)
+                    Text("90 days").tag(90)
+                }
+            } header: {
+                Text("Cleanup")
             }
         }
         .formStyle(.grouped)
         .padding()
+    }
+
+    private func pruneToLimit(_ limit: Int) {
+        let descriptor = FetchDescriptor<ClipboardItem>(
+            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+        )
+        guard let allItems = try? modelContext.fetch(descriptor) else { return }
+        if allItems.count > limit {
+            for item in allItems.suffix(from: limit) {
+                modelContext.delete(item)
+            }
+            try? modelContext.save()
+        }
     }
 }
 
