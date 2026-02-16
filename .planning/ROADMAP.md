@@ -35,4 +35,12 @@ Build a macOS menu bar clipboard manager with intelligent transforms. Start with
 | 4. Hooks | v1.0 | 2/2 | Complete | 2026-02-04 |
 | 5. Settings Window | v1.0 | 1/1 | Complete | 2026-02-05 |
 
-| 9. Settings Nav | v1.1 | 0/0 | Not Started | — |
+| 9. Settings Nav | v1.1 | 0/1 | In Progress | — |
+
+### Phase 9: Settings Navigation
+
+**Goal:** Replace flat settings layout with polished macOS-native tab navigation
+**Plans:** 1 plan
+
+Plans:
+- [ ] 09-01-PLAN.md — Toolbar tab navigation with macOS 15+ Tab API and unified window style
