@@ -11,7 +11,10 @@ class ClipboardMonitor {
     private var transformEngine: TransformEngine?
     private var hookEngine: HookEngine?
 
-    let maxItems: Int = 100
+    var maxItems: Int {
+        let stored = UserDefaults.standard.integer(forKey: "maxHistoryItems")
+        return stored > 0 ? stored : 100  // Default 100 if not set or zero
+    }
 
     // Cache for compiled regexes to avoid recompilation on every poll
     private var cachedPatternRegexes: [UUID: Regex<AnyRegexOutput>] = [:]

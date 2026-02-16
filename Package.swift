@@ -8,13 +8,17 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/sindresorhus/KeyboardShortcuts", from: "2.0.0"),
+        .package(url: "https://github.com/sindresorhus/LaunchAtLogin-Modern", from: "1.0.0"),
     ],
     targets: [
         .executableTarget(
             name: "clipass",
-            dependencies: ["KeyboardShortcuts"],
+            dependencies: [
+                "KeyboardShortcuts",
+                .product(name: "LaunchAtLogin", package: "LaunchAtLogin-Modern"),
+            ],
             path: "clipass",
-            exclude: ["Info.plist"]
+            exclude: ["Info.plist", "AppIcon.icns", "AppIcon.iconset"]
         ),
     ]
 )
