@@ -94,5 +94,6 @@ struct clipassApp: App {
                 .modelContext(services.modelContainer.mainContext)
         }
         .windowResizability(.contentSize)
+        .windowToolbarStyle(.unified)
     }
 }
