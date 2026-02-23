@@ -3,14 +3,14 @@ import SwiftData
 
 @Model
 class TransformRule {
-    var id: UUID
-    var name: String
-    var pattern: String
-    var replacement: String
+    var id: UUID = UUID()
+    var name: String = ""
+    var pattern: String = ""
+    var replacement: String = ""
     var sourceAppFilter: String?
-    var isEnabled: Bool
-    var order: Int
-    var createdAt: Date
+    var isEnabled: Bool = true
+    var order: Int = 0
+    var createdAt: Date = Date()
 
     init(
         id: UUID = UUID(),

@@ -37,7 +37,7 @@ Build a macOS menu bar clipboard manager with intelligent transforms. Start with
 
 | 9. Settings Nav | v1.1 | 1/1 | Complete | 2026-02-16 |
 | 10. Delete Item | v1.1 | — | Already Exists | 2026-02-16 |
-| 11. Context Actions | v1.1 | 0/0 | Not Started | — |
+| 11. Context Actions | v1.1 | 1/1 | Complete | 2026-02-16 |
 
 ### Phase 9: Settings Navigation
 
@@ -46,3 +46,11 @@ Build a macOS menu bar clipboard manager with intelligent transforms. Start with
 
 Plans:
 - [x] 09-01-PLAN.md — Toolbar tab navigation with macOS 15+ Tab API and unified window style
+
+### Phase 11: Context Actions
+
+**Goal:** Smart content-aware context menu + customizable user actions
+**Plans:** 1 plan
+
+Plans:
+- [x] 11-01-PLAN.md — ContentAnalyzer, pin support, smart context menu, custom actions CRUD, Settings tab

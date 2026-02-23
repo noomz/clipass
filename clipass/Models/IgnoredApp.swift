@@ -3,11 +3,11 @@ import SwiftData
 
 @Model
 class IgnoredApp {
-    var id: UUID
-    var bundleId: String
-    var name: String
-    var isEnabled: Bool
-    var createdAt: Date
+    var id: UUID = UUID()
+    var bundleId: String = ""
+    var name: String = ""
+    var isEnabled: Bool = true
+    var createdAt: Date = Date()
 
     init(
         id: UUID = UUID(),

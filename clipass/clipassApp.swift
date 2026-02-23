@@ -19,7 +19,21 @@ final class AppServices {
     private var isInitialized = false
 
     private init() {
-        modelContainer = try! ModelContainer(for: ClipboardItem.self, TransformRule.self, Hook.self, IgnoredApp.self, IgnoredPattern.self, RedactionPattern.self)
+        do {
+            modelContainer = try ModelContainer(for: ClipboardItem.self, TransformRule.self, Hook.self, IgnoredApp.self, IgnoredPattern.self, RedactionPattern.self, ContextAction.self)
+        } catch {
+            // Migration failed — delete corrupt store and retry
+            let storeURL = URL.applicationSupportDirectory.appending(path: "default.store")
+            for suffix in ["", "-wal", "-shm"] {
+                let url = storeURL.deletingLastPathComponent().appending(path: "default.store\(suffix)")
+                try? FileManager.default.removeItem(at: url)
+            }
+            do {
+                modelContainer = try ModelContainer(for: ClipboardItem.self, TransformRule.self, Hook.self, IgnoredApp.self, IgnoredPattern.self, RedactionPattern.self, ContextAction.self)
+            } catch {
+                fatalError("Failed to create ModelContainer even after resetting store: \(error)")
+            }
+        }
 
         // Initialize after a brief delay to ensure main context is ready
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [self] in
@@ -65,7 +79,7 @@ final class AppServices {
 
         guard let cutoffDate = Calendar.current.date(byAdding: .day, value: -days, to: Date()) else { return }
         let context = modelContainer.mainContext
-        let predicate = #Predicate<ClipboardItem> { $0.timestamp < cutoffDate }
+        let predicate = #Predicate<ClipboardItem> { $0.timestamp < cutoffDate && !$0.isPinned }
         let descriptor = FetchDescriptor<ClipboardItem>(predicate: predicate)
 
         guard let oldItems = try? context.fetch(descriptor) else { return }

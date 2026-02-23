@@ -158,14 +158,16 @@ class ClipboardMonitor {
     }
 
     private func pruneOldItems(context: ModelContext) {
+        // Only prune unpinned items — pinned items are exempt from limits
         let descriptor = FetchDescriptor<ClipboardItem>(
+            predicate: #Predicate { !$0.isPinned },
             sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
         )
 
-        guard let allItems = try? context.fetch(descriptor) else { return }
+        guard let unpinnedItems = try? context.fetch(descriptor) else { return }
 
-        if allItems.count > maxItems {
-            let itemsToDelete = allItems.suffix(from: maxItems)
+        if unpinnedItems.count > maxItems {
+            let itemsToDelete = unpinnedItems.suffix(from: maxItems)
             for item in itemsToDelete {
                 context.delete(item)
             }

@@ -2,12 +2,13 @@ import Foundation
 import SwiftData
 
 @Model
-class Hook {
+class ContextAction {
     var id: UUID = UUID()
     var name: String = ""
-    var pattern: String = ""
     var command: String = ""
-    var sourceAppFilter: String?
+    var contentFilter: String = ""  // regex pattern; empty = always show
+    var replacesClipboard: Bool = false  // if true, stdout replaces clipboard
+    var showNotification: Bool = true  // show macOS notification on success
     var isEnabled: Bool = true
     var order: Int = 0
     var createdAt: Date = Date()
@@ -15,18 +16,20 @@ class Hook {
     init(
         id: UUID = UUID(),
         name: String,
-        pattern: String,
         command: String,
-        sourceAppFilter: String? = nil,
+        contentFilter: String = "",
+        replacesClipboard: Bool = false,
+        showNotification: Bool = true,
         isEnabled: Bool = true,
         order: Int = 0,
         createdAt: Date = Date()
     ) {
         self.id = id
         self.name = name
-        self.pattern = pattern
         self.command = command
-        self.sourceAppFilter = sourceAppFilter
+        self.contentFilter = contentFilter
+        self.replacesClipboard = replacesClipboard
+        self.showNotification = showNotification
         self.isEnabled = isEnabled
         self.order = order
         self.createdAt = createdAt

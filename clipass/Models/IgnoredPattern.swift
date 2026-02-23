@@ -3,11 +3,11 @@ import SwiftData
 
 @Model
 class IgnoredPattern {
-    var id: UUID
-    var name: String
-    var pattern: String
-    var isEnabled: Bool
-    var createdAt: Date
+    var id: UUID = UUID()
+    var name: String = ""
+    var pattern: String = ""
+    var isEnabled: Bool = true
+    var createdAt: Date = Date()
 
     init(
         id: UUID = UUID(),

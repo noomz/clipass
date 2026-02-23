@@ -7,17 +7,24 @@ struct ClipboardPopup: View {
     var monitor: ClipboardMonitor
     @Environment(\.modelContext) private var modelContext
     @Environment(\.openWindow) private var openWindow
-    @Query(sort: \ClipboardItem.timestamp, order: .reverse) private var items: [ClipboardItem]
+    @Query(sort: \ClipboardItem.timestamp, order: .reverse)
+    private var items: [ClipboardItem]
     @Query private var rules: [TransformRule]
     @Query private var hooks: [Hook]
     @Query private var redactionPatterns: [RedactionPattern]
+    @Query(sort: \ContextAction.order) private var customActions: [ContextAction]
     @State private var searchText = ""
 
+    /// Items sorted with pinned first, then by timestamp (descending), with optional search filter
     private var filteredItems: [ClipboardItem] {
-        if searchText.isEmpty {
-            return items
+        let sorted = items.sorted { a, b in
+            if a.isPinned != b.isPinned { return a.isPinned }
+            return a.timestamp > b.timestamp
         }
-        return items.filter { $0.content.localizedCaseInsensitiveContains(searchText) }
+        if searchText.isEmpty {
+            return sorted
+        }
+        return sorted.filter { $0.content.localizedCaseInsensitiveContains(searchText) }
     }
 
     var body: some View {
@@ -90,9 +97,13 @@ struct ClipboardPopup: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 4) {
                         ForEach(filteredItems) { item in
-                            HistoryItemRow(item: item, redactionPatterns: redactionPatterns) {
-                                deleteItem(item)
-                            }
+                            HistoryItemRow(
+                                item: item,
+                                redactionPatterns: redactionPatterns,
+                                customActions: customActions,
+                                onDelete: { deleteItem(item) },
+                                onTogglePin: { togglePin(item) }
+                            )
                         }
                     }
                 }
@@ -134,6 +145,11 @@ struct ClipboardPopup: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             NSApp.activate(ignoringOtherApps: true)
         }
+    }
+
+    private func togglePin(_ item: ClipboardItem) {
+        item.isPinned.toggle()
+        try? modelContext.save()
     }
 
     private func deleteItem(_ item: ClipboardItem) {

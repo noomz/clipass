@@ -9,13 +9,13 @@ class RedactionPattern {
     static let categoryFinancial = "Financial"
     static let categoryCustom = "Custom"
 
-    var id: UUID
-    var name: String
-    var pattern: String
-    var category: String
-    var isEnabled: Bool
-    var isBuiltIn: Bool
-    var createdAt: Date
+    var id: UUID = UUID()
+    var name: String = ""
+    var pattern: String = ""
+    var category: String = ""
+    var isEnabled: Bool = true
+    var isBuiltIn: Bool = false
+    var createdAt: Date = Date()
 
     init(
         id: UUID = UUID(),

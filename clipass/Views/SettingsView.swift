@@ -37,6 +37,9 @@ struct SettingsView: View {
             Tab("Display", systemImage: "text.alignleft") {
                 DisplaySettingsView()
             }
+            Tab("Actions", systemImage: "cursorarrow.click.2") {
+                ContextActionsView()
+            }
         }
         .tabViewStyle(.sidebarAdaptable)
     }
@@ -53,6 +56,8 @@ struct SettingsView: View {
                 .tabItem { Label("Filtering", systemImage: "line.3.horizontal.decrease.circle") }
             DisplaySettingsView()
                 .tabItem { Label("Display", systemImage: "text.alignleft") }
+            ContextActionsView()
+                .tabItem { Label("Actions", systemImage: "cursorarrow.click.2") }
         }
     }
 }
@@ -111,12 +116,14 @@ struct GeneralSettingsView: View {
     }
 
     private func pruneToLimit(_ limit: Int) {
+        // Only prune unpinned items — pinned items are exempt from limits
         let descriptor = FetchDescriptor<ClipboardItem>(
+            predicate: #Predicate { !$0.isPinned },
             sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
         )
-        guard let allItems = try? modelContext.fetch(descriptor) else { return }
-        if allItems.count > limit {
-            for item in allItems.suffix(from: limit) {
+        guard let unpinnedItems = try? modelContext.fetch(descriptor) else { return }
+        if unpinnedItems.count > limit {
+            for item in unpinnedItems.suffix(from: limit) {
                 modelContext.delete(item)
             }
             try? modelContext.save()
