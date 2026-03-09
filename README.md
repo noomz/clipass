@@ -1,6 +1,10 @@
-# clipass
+<p align="center">
+  <img src="clipass/AppIcon.iconset/icon_128x128@2x.png" width="128" height="128" alt="clipass icon">
+</p>
 
-A macOS menu bar clipboard manager with intelligent transforms and automation hooks.
+<h1 align="center">clipass</h1>
+
+<p align="center">A macOS menu bar clipboard manager with intelligent transforms and automation hooks.</p>
 
 clipass lives in your menu bar, monitors the system clipboard, stores text history, and can automatically clean up clipboard content using regex-based rules. It also supports triggering external shell commands when clipboard content matches certain patterns.
 
@@ -9,10 +13,21 @@ clipass lives in your menu bar, monitors the system clipboard, stores text histo
 - **Clipboard History** - Stores up to 100 recent text items with one-click re-copy
 - **Global Hotkey** - `Cmd+Shift+V` to open the popup (customizable)
 - **Search** - Real-time filtering across your clipboard history
+- **Pin Items** - Pin important entries to keep them at the top; pinned items are exempt from auto-cleanup and max-items pruning
+- **Delete Items** - Right-click any entry to delete it, or use "Clear All" to remove everything
+- **Content Type Detection** - Automatically detects URLs, emails, JSON, file paths, hex colors, and numbers for context-appropriate actions
+- **Copy As...** - Quick text transforms via right-click: UPPERCASE, lowercase, Trimmed, Base64, URL encode/decode, and Formatted JSON
+- **Context Actions** - Define custom shell commands that appear in the right-click menu, with optional regex content filtering and clipboard replacement
 - **Transform Rules** - Regex-based rules that automatically clean clipboard content (e.g., strip trailing whitespace, normalize line endings)
 - **Automation Hooks** - Execute shell commands when clipboard content matches a pattern, with clipboard content available via `$CLIPASS_CONTENT` and `$CLIPASS_SOURCE_APP` environment variables
+- **Ignored Apps** - Exclude specific apps by bundle identifier from clipboard capture
+- **Ignore Patterns** - Skip storing clipboard content that matches specific regex patterns
+- **Redaction Patterns** - Automatically mask sensitive data (API keys, credit cards, emails, phone numbers) in the clipboard preview
+- **Display Formatting** - Configurable preview length (20-200 chars) with word-boundary truncation and invisible character stripping
+- **Auto-Cleanup** - Optionally auto-delete items older than 1, 7, 30, or 90 days; pinned items are exempt
+- **Launch at Login** - Optional auto-start via macOS Login Items
 - **Password Manager Aware** - Ignores transient/concealed pasteboard types from password managers
-- **Settings Window** - Tabbed UI for managing transform rules and hooks
+- **Settings** - Sidebar-style settings with tabs for General, Transforms, Automation, Filtering, Display, and Actions
 
 ## Requirements
 
@@ -82,26 +97,42 @@ Hooks can also be filtered by source app bundle identifier and are executed asyn
 
 ```
 clipass/
-├── clipassApp.swift          # App entry point, service wiring
+├── clipassApp.swift              # App entry point, service wiring, auto-cleanup
 ├── Models/
-│   ├── ClipboardItem.swift   # Clipboard history item (SwiftData)
-│   ├── TransformRule.swift   # Regex transform rule (SwiftData)
-│   └── Hook.swift            # Automation hook (SwiftData)
+│   ├── ClipboardItem.swift       # Clipboard history item with pinning (SwiftData)
+│   ├── TransformRule.swift       # Regex transform rule (SwiftData)
+│   ├── Hook.swift                # Automation hook (SwiftData)
+│   ├── ContextAction.swift       # User-defined shell-command context actions (SwiftData)
+│   ├── IgnoredApp.swift          # Apps excluded from clipboard capture (SwiftData)
+│   ├── IgnoredPattern.swift      # Regex patterns to skip storing content (SwiftData)
+│   └── RedactionPattern.swift    # Sensitive data masking patterns (SwiftData)
 ├── Services/
-│   ├── ClipboardMonitor.swift  # Clipboard polling & event dispatch
-│   ├── TransformEngine.swift   # Regex transform pipeline
-│   └── HookEngine.swift        # External command execution
+│   ├── ClipboardMonitor.swift    # Clipboard polling, filtering & event dispatch
+│   ├── TransformEngine.swift     # Regex transform pipeline
+│   ├── HookEngine.swift          # External command execution
+│   ├── ContentAnalyzer.swift     # Content type detection (URL, email, JSON, etc.)
+│   ├── ContextActionEngine.swift # Custom action shell command execution
+│   └── DisplayFormatter.swift    # Preview formatting: strip, redact, truncate
 └── Views/
-    ├── ClipboardPopup.swift    # Menu bar popup UI
-    ├── HistoryItemRow.swift    # History item row
-    ├── SettingsView.swift      # Tabbed settings container
-    ├── RulesView.swift         # Transform rules list
-    ├── RuleEditorView.swift    # Rule editor form
-    ├── HooksView.swift         # Hooks list
-    └── HookEditorView.swift    # Hook editor form
+    ├── ClipboardPopup.swift      # Menu bar popup UI
+    ├── HistoryItemRow.swift      # History item row with context menu
+    ├── SettingsView.swift        # Sidebar settings container (6 tabs)
+    ├── RulesView.swift           # Transform rules list
+    ├── RuleEditorView.swift      # Rule editor form
+    ├── HooksView.swift           # Hooks list
+    ├── HookEditorView.swift      # Hook editor form
+    ├── ContextActionsView.swift  # Context actions list
+    ├── ContextActionEditorView.swift # Context action editor form
+    ├── IgnoredAppsView.swift     # Ignored apps list
+    ├── IgnoredAppEditorView.swift    # Ignored app editor form
+    ├── IgnoredPatternsView.swift     # Ignored patterns list
+    ├── IgnoredPatternEditorView.swift # Ignored pattern editor form
+    ├── DisplaySettingsView.swift     # Display & redaction settings
+    ├── RedactionPatternsView.swift   # Redaction patterns list
+    └── RedactionPatternEditorView.swift # Redaction pattern editor form
 ```
 
-Built with SwiftUI, SwiftData, and [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts).
+Built with SwiftUI, SwiftData, [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts), and [LaunchAtLogin](https://github.com/sindresorhus/LaunchAtLogin).
 
 ## License
 
