@@ -96,6 +96,14 @@ final class AppServices {
 struct clipassApp: App {
     private var services = AppServices.shared
 
+    init() {
+        // Prevent macOS from automatically terminating the app
+        // when there are no visible windows (menu bar apps have none).
+        // Matches the pattern from exmen to survive sleep/wake cycles.
+        ProcessInfo.processInfo.disableAutomaticTermination("Menu bar app must remain running")
+        ProcessInfo.processInfo.disableSuddenTermination()
+    }
+
     var body: some Scene {
         MenuBarExtra("clipass", systemImage: "doc.on.clipboard") {
             ClipboardPopup(monitor: services.clipboardMonitor)

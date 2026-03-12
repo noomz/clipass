@@ -11,6 +11,16 @@ class ClipboardMonitor {
     private var transformEngine: TransformEngine?
     private var hookEngine: HookEngine?
 
+    // Lock to protect lastChangeCount from data races between background
+    // timer queue and main queue writes (pattern adapted from exmen's
+    // ScriptRunner NSLock guard).
+    private let changeCountLock = NSLock()
+
+    // Track whether the timer is currently suspended to avoid double-resume
+    // crashes (matched from exmen's double-resume prevention pattern).
+    private var isSuspended = false
+    private let suspendLock = NSLock()
+
     var maxItems: Int {
         let stored = UserDefaults.standard.integer(forKey: "maxHistoryItems")
         return stored > 0 ? stored : 100  // Default 100 if not set or zero
@@ -27,6 +37,7 @@ class ClipboardMonitor {
 
     init() {
         lastChangeCount = pasteboard.changeCount
+        observeSleepWake()
     }
 
     // Get or compile regex for an IgnoredPattern
@@ -56,6 +67,55 @@ class ClipboardMonitor {
         self.hookEngine = engine
     }
 
+    // MARK: - Sleep / Wake handling
+
+    /// Subscribe to system sleep/wake notifications to safely pause and
+    /// resume the polling timer. This prevents crashes caused by the timer
+    /// firing into stale state immediately after wake.
+    private func observeSleepWake() {
+        let center = NSWorkspace.shared.notificationCenter
+
+        center.addObserver(
+            forName: NSWorkspace.willSleepNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.handleSleep()
+        }
+
+        center.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.handleWake()
+        }
+    }
+
+    private func handleSleep() {
+        suspendLock.lock()
+        defer { suspendLock.unlock() }
+
+        guard !isSuspended, timer != nil else { return }
+        timer?.suspend()
+        isSuspended = true
+    }
+
+    private func handleWake() {
+        // Refresh the change count so the first poll after wake doesn't
+        // see a stale value and misfire.
+        changeCountLock.lock()
+        lastChangeCount = pasteboard.changeCount
+        changeCountLock.unlock()
+
+        suspendLock.lock()
+        defer { suspendLock.unlock() }
+
+        guard isSuspended, timer != nil else { return }
+        timer?.resume()
+        isSuspended = false
+    }
+
+    // MARK: - Timer lifecycle
+
     func start() {
         let queue = DispatchQueue(label: "com.clipass.monitor", qos: .utility)
         timer = DispatchSource.makeTimerSource(queue: queue)
@@ -64,16 +124,37 @@ class ClipboardMonitor {
             self?.poll()
         }
         timer?.resume()
+
+        suspendLock.lock()
+        isSuspended = false
+        suspendLock.unlock()
     }
 
     func stop() {
+        suspendLock.lock()
+        // DispatchSource must be resumed before cancel if it is suspended,
+        // otherwise it will crash.
+        if isSuspended {
+            timer?.resume()
+            isSuspended = false
+        }
+        suspendLock.unlock()
+
         timer?.cancel()
         timer = nil
     }
 
     private func poll() {
-        guard pasteboard.changeCount != lastChangeCount else { return }
-        lastChangeCount = pasteboard.changeCount
+        changeCountLock.lock()
+        let currentChangeCount = lastChangeCount
+        changeCountLock.unlock()
+
+        let pasteboardCount = pasteboard.changeCount
+        guard pasteboardCount != currentChangeCount else { return }
+
+        changeCountLock.lock()
+        lastChangeCount = pasteboardCount
+        changeCountLock.unlock()
 
         // Check for ignored types (password managers, etc.)
         if let types = pasteboard.types {
@@ -102,7 +183,9 @@ class ClipboardMonitor {
                 self.pasteboard.clearContents()
                 self.pasteboard.setString(transformedContent, forType: .string)
                 // Update lastChangeCount to avoid re-polling our own change
+                self.changeCountLock.lock()
                 self.lastChangeCount = self.pasteboard.changeCount
+                self.changeCountLock.unlock()
             }
 
             // Check ignored apps
