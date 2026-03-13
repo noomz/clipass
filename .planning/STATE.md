@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Overlay UI & Theming
 status: planning
-stopped_at: "Checkpoint: Task 3 human-verify in 12-overlay-panel-02-PLAN.md"
-last_updated: "2026-03-13T08:55:29.447Z"
+stopped_at: Completed 12-overlay-panel-02-PLAN.md
+last_updated: "2026-03-13T09:45:42.230Z"
 last_activity: 2026-03-13 — v2.0 roadmap created (phases 12-14)
 progress:
   total_phases: 14
@@ -55,6 +55,7 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 | 11. Context Actions | 1/1 | ~5 min | ~5 min |
 | Phase 12-overlay-panel P01 | 2 | 2 tasks | 2 files |
 | Phase 12-overlay-panel P02 | 5min | 2 tasks | 5 files |
+| Phase 12-overlay-panel P02 | 15min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,9 @@ See PROJECT.md Key Decisions table for full list with outcomes.
 - [Phase 12-overlay-panel]: No default hotkey for toggleOverlay — user configures in Settings to avoid global shortcut conflicts
 - [Phase 12-overlay-panel]: NSVisualEffectView state=.active required for .accessory policy blur rendering
 - [Phase 12-overlay-panel]: overlayWillShow notification posted before makeKeyAndOrderFront for clean state reset
+- [Phase 12-overlay-panel]: OverlaySearchField (NSViewRepresentable + NSTextField subclass) replaces @FocusState — SwiftUI focus unreliable in .nonactivatingPanel; AppKit makeFirstResponder is canonical fix
+- [Phase 12-overlay-panel]: Arrow keys intercepted in NSTextField.keyDown subclass (not SwiftUI .onKeyPress) — SwiftUI key press requires SwiftUI first-responder status which AppKit fields don't propagate back
+- [Phase 12-overlay-panel]: cancelOperation(:) added to OverlayPanel as ESC fallback — handles edge case where field loses first-responder before ESC keyDown fires
 
 ### Pending Todos
 
@@ -86,6 +90,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-13T08:55:29.444Z
-Stopped at: Checkpoint: Task 3 human-verify in 12-overlay-panel-02-PLAN.md
+Last session: 2026-03-13T09:45:42.224Z
+Stopped at: Completed 12-overlay-panel-02-PLAN.md
 Resume file: None
