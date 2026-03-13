@@ -9,10 +9,10 @@ Requirements for v2.0 Overlay UI & Theming. Each maps to roadmap phases.
 
 ### Overlay Panel
 
-- [ ] **OVRL-01**: User can summon a floating overlay panel via a dedicated global hotkey
-- [ ] **OVRL-02**: User can dismiss the overlay with ESC key
-- [ ] **OVRL-03**: User can dismiss the overlay by clicking outside the panel
-- [ ] **OVRL-04**: Same hotkey toggles overlay open/closed
+- [x] **OVRL-01**: User can summon a floating overlay panel via a dedicated global hotkey
+- [x] **OVRL-02**: User can dismiss the overlay with ESC key
+- [x] **OVRL-03**: User can dismiss the overlay by clicking outside the panel
+- [x] **OVRL-04**: Same hotkey toggles overlay open/closed
 - [ ] **OVRL-05**: Search field is auto-focused when overlay opens
 - [ ] **OVRL-06**: User can navigate clipboard items with arrow keys and paste with Return
 - [ ] **OVRL-07**: Overlay displays frosted glass vibrancy background
@@ -57,10 +57,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| OVRL-01 | Phase 12 | Pending |
-| OVRL-02 | Phase 12 | Pending |
-| OVRL-03 | Phase 12 | Pending |
-| OVRL-04 | Phase 12 | Pending |
+| OVRL-01 | Phase 12 | Complete |
+| OVRL-02 | Phase 12 | Complete |
+| OVRL-03 | Phase 12 | Complete |
+| OVRL-04 | Phase 12 | Complete |
 | OVRL-05 | Phase 12 | Pending |
 | OVRL-06 | Phase 12 | Pending |
 | OVRL-07 | Phase 12 | Pending |
