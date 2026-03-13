@@ -57,29 +57,29 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| OVRL-01 | — | Pending |
-| OVRL-02 | — | Pending |
-| OVRL-03 | — | Pending |
-| OVRL-04 | — | Pending |
-| OVRL-05 | — | Pending |
-| OVRL-06 | — | Pending |
-| OVRL-07 | — | Pending |
-| OVRL-08 | — | Pending |
-| OVRL-09 | — | Pending |
-| THME-01 | — | Pending |
-| THME-02 | — | Pending |
-| THME-03 | — | Pending |
-| THME-04 | — | Pending |
-| EDIT-01 | — | Pending |
-| EDIT-02 | — | Pending |
-| EDIT-03 | — | Pending |
-| EDIT-04 | — | Pending |
+| OVRL-01 | Phase 12 | Pending |
+| OVRL-02 | Phase 12 | Pending |
+| OVRL-03 | Phase 12 | Pending |
+| OVRL-04 | Phase 12 | Pending |
+| OVRL-05 | Phase 12 | Pending |
+| OVRL-06 | Phase 12 | Pending |
+| OVRL-07 | Phase 12 | Pending |
+| OVRL-08 | Phase 12 | Pending |
+| OVRL-09 | Phase 12 | Pending |
+| THME-01 | Phase 13 | Pending |
+| THME-02 | Phase 13 | Pending |
+| THME-03 | Phase 13 | Pending |
+| THME-04 | Phase 13 | Pending |
+| EDIT-01 | Phase 14 | Pending |
+| EDIT-02 | Phase 14 | Pending |
+| EDIT-03 | Phase 14 | Pending |
+| EDIT-04 | Phase 14 | Pending |
 
 **Coverage:**
 - v2.0 requirements: 17 total
-- Mapped to phases: 0
-- Unmapped: 17
+- Mapped to phases: 17
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-13*
-*Last updated: 2026-03-13 after initial definition*
+*Last updated: 2026-03-13 — traceability filled after roadmap creation*

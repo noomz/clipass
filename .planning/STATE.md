@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: "Overlay UI & Theming"
-status: defining
+status: ready_to_plan
 stopped_at: null
 last_updated: "2026-03-13"
-last_activity: 2026-03-13 — Milestone v2.0 started
+last_activity: 2026-03-13 — v2.0 roadmap created, phases 12-14 defined
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
-  total_plans: 0
+  total_plans: 4
   completed_plans: 0
   percent: 0
 ---
@@ -21,20 +21,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-13)
 
 **Core value:** Smart transforms — auto-cleaning and formatting clipboard content before paste
-**Current focus:** v2.0 Overlay UI & Theming — Defining requirements
+**Current focus:** Phase 12 — Overlay Panel
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-13 — Milestone v2.0 started
+Phase: 12 of 14 (Overlay Panel)
+Plan: 0 of 2 in current phase
+Status: Ready to plan
+Last activity: 2026-03-13 — v2.0 roadmap created (phases 12-14)
+
+Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 16
-- Average duration: ~4 min
+- Total plans completed: 16 (v1.0: 9, v1.1: 7)
+- Average duration: ~4 min/plan
 - Total execution time: ~55 min
 
 **By Phase:**
@@ -59,22 +61,12 @@ Last activity: 2026-03-13 — Milestone v2.0 started
 See PROJECT.md Key Decisions table for full list with outcomes.
 
 - Phase 8: Used .product(name:package:) for LaunchAtLogin-Modern SPM dependency resolution
-- Phase 8: UserDefaults.standard computed property in ClipboardMonitor (not @AppStorage) for non-view reactivity
 - Phase 9: sidebarAdaptable TabView style for macOS 15+ with tabItem fallback for macOS 14
-- Phase 9: unified window toolbar style for native Settings appearance
-- Phase 11: ContentAnalyzer detects content types (URL, email, JSON, path, hex, number) for smart context menus
-- Phase 11: isPinned field on ClipboardItem with exemption from auto-cleanup and max-items pruning
-- Phase 11: ContextAction SwiftData model for user-defined shell-command actions with regex content filtering
-
-### Roadmap Evolution
-
-- Phase 9 added: Settings dialog tab-like navigation
-- Phase 10 added: Add option to delete clipboard item
-- Phase 11 added: Add context menu actions for clipboard items (translate, execute, etc.)
-
-### Deferred Issues
-
-None.
+- Phase 11: ContentAnalyzer detects content types for smart context menus
+- Phase 11: isPinned field on ClipboardItem exempt from auto-cleanup and max-items pruning
+- [v2.0 arch]: Overlay must be NSPanel subclass — not SwiftUI Window scene — for non-activating floating behavior
+- [v2.0 arch]: Theme applied to overlay only; menu bar popup retains existing style
+- [v2.0 arch]: Inline editor updates SwiftData only on save (no pasteboard write) to prevent history duplication
 
 ### Pending Todos
 
@@ -82,10 +74,11 @@ None.
 
 ### Blockers/Concerns
 
-None.
+- [Phase 12]: Validate @FocusState reliability in NSPanel-hosted SwiftUI — NSApp.keyWindow?.makeFirstResponder() fallback may be needed
+- [Phase 13]: Verify NSVisualEffectView vibrancy renders with blur under .accessory activation policy (.state = .active fix documented, needs in-app validation)
 
 ## Session Continuity
 
-Last session: 2026-02-16
-Stopped at: Completed 11-01-PLAN.md (Phase 11 complete, v1.1 milestone complete)
+Last session: 2026-03-13
+Stopped at: Roadmap created for v2.0, ready to plan Phase 12
 Resume file: None
