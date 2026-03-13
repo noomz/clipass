@@ -1,36 +1,34 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: milestone
-status: completed
-stopped_at: Completed 11-01-PLAN.md (Phase 11 complete, v1.1 milestone complete)
-last_updated: "2026-03-13T07:50:11.481Z"
-last_activity: 2026-02-16 — Completed 11-01-PLAN.md
+milestone: v2.0
+milestone_name: "Overlay UI & Theming"
+status: defining
+stopped_at: null
+last_updated: "2026-03-13"
+last_activity: 2026-03-13 — Milestone v2.0 started
 progress:
-  total_phases: 2
-  completed_phases: 1
-  total_plans: 2
-  completed_plans: 1
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-06)
+See: .planning/PROJECT.md (updated 2026-03-13)
 
 **Core value:** Smart transforms — auto-cleaning and formatting clipboard content before paste
-**Current focus:** v1.1 More Control — Phase 11 Context Actions
+**Current focus:** v2.0 Overlay UI & Theming — Defining requirements
 
 ## Current Position
 
-Phase: 11 of 11 (Context Actions)
-Plan: 1 of 1 in current phase
-Status: Phase complete
-Last activity: 2026-02-16 — Completed 11-01-PLAN.md
-
-Progress: ██████████ 100% (6/6 phases in v1.1)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-13 — Milestone v2.0 started
 
 ## Performance Metrics
 
