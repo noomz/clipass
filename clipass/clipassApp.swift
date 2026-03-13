@@ -4,6 +4,7 @@ import KeyboardShortcuts
 
 extension KeyboardShortcuts.Name {
     static let toggleClipboard = Self("toggleClipboard", default: .init(.v, modifiers: [.command, .shift]))
+    static let toggleOverlay = Self("toggleOverlay")  // No default — user configures in Settings
 }
 
 // Singleton to hold services and ensure single initialization
@@ -62,6 +63,14 @@ final class AppServices {
         KeyboardShortcuts.onKeyUp(for: .toggleClipboard) {
             NSApp.activate(ignoringOtherApps: true)
         }
+
+        KeyboardShortcuts.onKeyUp(for: .toggleOverlay) {
+            // DO NOT call NSApp.activate() — overlay is non-activating by design
+            OverlayWindowController.shared.toggle()
+        }
+
+        // Force-initialize the singleton at launch so the panel is ready before first use.
+        _ = OverlayWindowController.shared
     }
 
     private func startAutoCleanupTimer() {
