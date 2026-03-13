@@ -2,9 +2,13 @@ import SwiftUI
 
 /// Individual row view for an item in the overlay clipboard list.
 /// Displays a truncated content preview, optional source app, and relative timestamp.
+/// Selection highlight is drawn inline (not via List) so it works when the search field
+/// holds first-responder status and the list itself is never focused.
 struct OverlayItemRow: View {
 
     let item: ClipboardItem
+    var isSelected: Bool = false
+    var onDoubleTap: (() -> Void)? = nil
 
     private var previewText: String {
         DisplayFormatter.format(item.content, maxLength: 100, patterns: [])
@@ -37,24 +41,31 @@ struct OverlayItemRow: View {
                 Text(previewText)
                     .lineLimit(1)
                     .font(.body)
-                    .foregroundColor(.primary)
+                    .foregroundColor(isSelected ? .white : .primary)
             }
             HStack {
                 if let sourceApp = item.sourceApp {
                     Text(sourceApp)
                         .font(.caption2)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(isSelected ? .white.opacity(0.75) : .secondary)
                 }
                 Spacer()
                 Text(relativeTime)
                     .font(.caption2)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(isSelected ? .white.opacity(0.75) : .secondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        // Clear background — List selection handles highlighting
-        .background(Color.clear)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isSelected ? Color.accentColor : Color.clear)
+                .padding(.horizontal, 4)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) {
+            onDoubleTap?()
+        }
     }
 }

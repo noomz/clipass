@@ -81,17 +81,39 @@ struct ClipboardOverlayView: View {
 
             Divider()
 
-            // Clipboard list — selection is driven entirely by selectedID state.
-            // Arrow key events are handled by OverlaySearchField above and update selectedID,
-            // so the list stays in sync without needing to receive keyboard events itself.
-            List(filteredItems, selection: $selectedID) { item in
-                OverlayItemRow(item: item)
-                    .tag(item.id)
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
+            // Clipboard list — selection and scroll position are driven entirely by selectedID.
+            // Arrow key events are handled by OverlaySearchField and update selectedID;
+            // the ScrollViewReader auto-scrolls to keep the selected row visible.
+            // Using ScrollView+ForEach (not List) so selection highlight renders correctly
+            // even when the search field — not the list — holds first-responder status.
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(filteredItems) { item in
+                            OverlayItemRow(
+                                item: item,
+                                isSelected: item.id == selectedID,
+                                onDoubleTap: {
+                                    selectedID = item.id
+                                    pasteSelected()
+                                }
+                            )
+                            .id(item.id)
+                            .onTapGesture {
+                                selectedID = item.id
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                .onChange(of: selectedID) { _, newID in
+                    if let id = newID {
+                        withAnimation(.linear(duration: 0.1)) {
+                            proxy.scrollTo(id, anchor: nil)
+                        }
+                    }
+                }
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
 
             Divider()
 
