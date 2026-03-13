@@ -43,13 +43,14 @@ struct ClipboardOverlayView: View {
         .frame(width: 640, height: 400)
         .onAppear {
             showContent = true
-            selectedID = filteredItems.first?.id
+            if selectedID == nil {
+                selectedID = filteredItems.first?.id
+            }
         }
-        // Reset state when overlay is about to show (controller posts this before makeKeyAndOrderFront)
+        // Reset search when overlay is about to show, but preserve scroll position and selection.
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("overlayWillShow"))) { _ in
             searchText = ""
             showContent = true
-            selectedID = filteredItems.first?.id
         }
         // Auto-select first item whenever filtered list changes
         .onChange(of: filteredItems) { _, newItems in
