@@ -98,6 +98,13 @@ struct GeneralSettingsView: View {
                 Text("Hotkey")
             }
 
+            // OVRL-09: Overlay hotkey customization
+            Section {
+                KeyboardShortcuts.Recorder("Toggle Overlay:", name: .toggleOverlay)
+            } header: {
+                Text("Overlay Hotkey")
+            }
+
             // BEHV-04: Auto-cleanup age
             Section {
                 Picker("Auto-delete items older than:", selection: $autoCleanupDays) {

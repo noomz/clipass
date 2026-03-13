@@ -83,11 +83,10 @@ final class OverlayWindowController {
     private init() {
         panel = OverlayPanel()
 
-        // Placeholder content — Plan 02 will replace this via setContentView(_:).
-        panel.contentView = NSHostingView(
-            rootView: Text("Overlay placeholder")
-                .frame(width: 640, height: 400)
-        )
+        // Inject the real overlay UI with model context from AppServices.
+        let overlayView = ClipboardOverlayView()
+            .modelContext(AppServices.shared.modelContainer.mainContext)
+        panel.contentView = NSHostingView(rootView: overlayView)
 
         // Observe resignKey notification to restore focus to the previous app.
         NotificationCenter.default.addObserver(
@@ -131,6 +130,11 @@ final class OverlayWindowController {
         }
 
         panel.shownAt = Date()
+
+        // Post notification BEFORE makeKeyAndOrderFront so the view resets its state
+        // (clears search text, re-selects first item, re-focuses search field).
+        NotificationCenter.default.post(name: Notification.Name("overlayWillShow"), object: nil)
+
         panel.makeKeyAndOrderFront(nil)
 
         // @FocusState is unreliable when a view first appears inside NSPanel (race with
