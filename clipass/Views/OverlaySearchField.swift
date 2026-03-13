@@ -78,6 +78,29 @@ struct OverlaySearchField: NSViewRepresentable {
             guard let field = obj.object as? NSTextField else { return }
             parent.text = field.stringValue
         }
+
+        /// Intercept key commands from the field editor (NSTextView) that handles
+        /// input while the text field is being edited. Without this, arrow keys,
+        /// ESC, and Return are consumed by the field editor and never reach
+        /// InterceptingTextField.keyDown.
+        func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+            switch commandSelector {
+            case #selector(NSResponder.moveDown(_:)):
+                parent.onArrowDown()
+                return true
+            case #selector(NSResponder.moveUp(_:)):
+                parent.onArrowUp()
+                return true
+            case #selector(NSResponder.cancelOperation(_:)):
+                parent.onEscape()
+                return true
+            case #selector(NSResponder.insertNewline(_:)):
+                parent.onReturn()
+                return true
+            default:
+                return false
+            }
+        }
     }
 }
 
