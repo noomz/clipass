@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A macOS menu bar app for intelligent clipboard management. Access via menu bar icon or Cmd+Shift+V to browse clipboard history, apply smart transforms, and trigger automations. Text-only and local-first.
+A macOS menu bar app for intelligent clipboard management. Access via menu bar icon or Cmd+Shift+V to browse clipboard history, apply smart transforms, trigger automations, and perform smart context actions. Text-only and local-first with full user control over filtering, display, and behavior.
 
 ## Core Value
 
@@ -10,32 +10,25 @@ Smart transforms — auto-cleaning and formatting clipboard content before paste
 
 ## Current State
 
-**Version:** v1.0 MVP (shipped 2026-02-05)
+**Version:** v1.1 More Control (shipped 2026-03-13)
 
-**Codebase:** 1,391 lines of Swift across 14 files
+**Codebase:** 8,014 lines of Swift across 50 files
 
-**Tech stack:** Swift/SwiftUI, SwiftData, KeyboardShortcuts
+**Tech stack:** Swift/SwiftUI, SwiftData, KeyboardShortcuts, LaunchAtLogin-Modern
 
 **What's working:**
-- Menu bar popup with clipboard history (100 items max)
-- Global hotkey Cmd+Shift+V
+- Menu bar popup with clipboard history (configurable max items)
+- Customizable global hotkey (default Cmd+Shift+V)
 - Real-time search filtering
 - Transform rules with regex patterns
 - External hooks for automation scripts
-- Dedicated Settings window
-
-## Current Milestone: v1.1 More Control
-
-**Goal:** Give users full control over filtering, display formatting, and app behavior through Settings.
-
-**Target features:**
-- Configurable ignored app patterns (replace hardcoded list)
-- Content patterns to skip storing (regex)
-- Display formatting (clean invisible chars, truncation length)
-- Sensitive content redaction in preview (emails, passwords masked)
-- History limits (max items, auto-cleanup age)
-- Hotkey customization
-- Start on login option
+- macOS-native Settings with 6 tabs (General, Transforms, Automation, Filtering, Display, Actions)
+- App/content ignore patterns with regex
+- Display formatting with sensitive content redaction
+- Launch at Login, auto-cleanup timer
+- Smart content-aware context menu (URL, email, JSON, path detection)
+- Pin/Unpin items (exempt from cleanup/pruning)
+- Custom user-defined shell-command actions
 
 ## Requirements
 
@@ -48,23 +41,24 @@ Smart transforms — auto-cleaning and formatting clipboard content before paste
 - Auto-format on paste (strip trailing whitespace) — v1.0
 - External triggers on clipboard change — v1.0
 - App-specific behavior based on source — v1.0
+- Configurable ignored app patterns — v1.1
+- Content patterns to ignore (regex) — v1.1
+- Clean invisible chars in menu preview — v1.1
+- Configurable preview truncation length — v1.1
+- Sensitive content redaction in preview — v1.1
+- History max items setting — v1.1
+- History auto-cleanup age setting — v1.1
+- Customizable global hotkey — v1.1
+- Start on login option — v1.1
 
 ### Active
 
-- [ ] Configurable ignored app patterns
-- [ ] Content patterns to ignore (regex)
-- [ ] Clean invisible chars in menu preview
-- [ ] Configurable preview truncation length
-- [ ] Sensitive content redaction in preview
-- [ ] History max items setting
-- [ ] History auto-cleanup age setting
-- [ ] Customizable global hotkey
-- [ ] Start on login option
+(None — defining next milestone)
 
 ### Out of Scope
 
-- Cloud sync — v1 is local-only, no cross-device sync
-- Rich media (images, files) — text only for now, simplifies transforms
+- Cloud sync — local-only, no cross-device sync
+- Rich media (images, files) — text only, simplifies transforms
 
 ## Context
 
@@ -88,6 +82,10 @@ Common use case: copying from Terminal includes trailing whitespace that breaks 
 | 500ms polling interval | Balance between responsiveness and efficiency | Good |
 | SwiftData for persistence | Modern Apple persistence, SQLite backend | Good |
 | Window scene for Settings | Appears in app switcher (Settings scene doesn't) | Good |
+| sidebarAdaptable TabView | macOS 15+ native Settings style with legacy fallback | Good |
+| ContentAnalyzer for smart menus | Lightweight regex detection gates context actions | Good |
+| isPinned on ClipboardItem | Exempt from all pruning paths, simple SwiftData field | Good |
+| ContextAction shell commands | Flexible user-defined actions via CLIPASS_CONTENT env var | Good |
 
 ---
-*Last updated: 2026-02-06 after v1.1 milestone start*
+*Last updated: 2026-03-13 after v1.1 milestone complete*
