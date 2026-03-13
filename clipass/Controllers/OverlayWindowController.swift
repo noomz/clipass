@@ -1,0 +1,173 @@
+import AppKit
+import SwiftUI
+
+// MARK: - OverlayPanel
+
+/// Non-activating floating panel that hosts the clipboard overlay UI.
+/// Must be an NSPanel subclass — SwiftUI Window scenes always activate the app.
+final class OverlayPanel: NSPanel {
+
+    /// Set by OverlayWindowController.show() — used to guard against spurious resignKey calls.
+    var shownAt: Date = .distantPast
+
+    init() {
+        super.init(
+            contentRect: NSRect(x: 0, y: 0, width: 640, height: 400),
+            styleMask: [
+                .nonactivatingPanel,
+                .titled,
+                .fullSizeContentView
+            ],
+            backing: .buffered,
+            defer: false
+        )
+
+        // Floating behaviors
+        isFloatingPanel = true
+        level = .floating
+        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+
+        // Hide the titlebar entirely while keeping fullSizeContentView layout
+        titleVisibility = .hidden
+        titlebarAppearsTransparent = true
+        standardWindowButton(.closeButton)?.isHidden = true
+        standardWindowButton(.miniaturizeButton)?.isHidden = true
+        standardWindowButton(.zoomButton)?.isHidden = true
+
+        // Movement and appearance
+        isMovableByWindowBackground = true
+        isOpaque = false
+        backgroundColor = .clear
+        hasShadow = true
+    }
+
+    // CRITICAL: NSPanel defaults canBecomeKey and canBecomeMain to false.
+    // Without these overrides the panel cannot receive keyboard events or host @FocusState.
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+
+    /// Click-outside and ESC dismissal entry point.
+    /// Called by the system when the panel loses key status (another window gets focus, ESC, etc.)
+    override func resignKey() {
+        super.resignKey()
+
+        // Pitfall 3 guard: if resignKey fires immediately after show (< 0.3 s) it is a
+        // spurious call during initialization — ignore it to prevent flash-close.
+        guard Date().timeIntervalSince(shownAt) > 0.3 else { return }
+
+        orderOut(nil)
+
+        // Notify the controller so it can restore the previous app's focus.
+        NotificationCenter.default.post(name: .overlayDidResignKey, object: nil)
+    }
+}
+
+// MARK: - Notification name
+
+extension Notification.Name {
+    static let overlayDidResignKey = Notification.Name("overlayDidResignKey")
+}
+
+// MARK: - OverlayWindowController
+
+/// Singleton that owns the OverlayPanel and manages its show/hide/toggle lifecycle.
+/// All methods must be called on the main actor.
+@MainActor
+final class OverlayWindowController {
+
+    static let shared = OverlayWindowController()
+
+    private let panel: OverlayPanel
+    private var previousApp: NSRunningApplication?
+
+    private init() {
+        panel = OverlayPanel()
+
+        // Placeholder content — Plan 02 will replace this via setContentView(_:).
+        panel.contentView = NSHostingView(
+            rootView: Text("Overlay placeholder")
+                .frame(width: 640, height: 400)
+        )
+
+        // Observe resignKey notification to restore focus to the previous app.
+        NotificationCenter.default.addObserver(
+            forName: .overlayDidResignKey,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.restoreFocus()
+            }
+        }
+    }
+
+    // MARK: Toggle / Show / Hide
+
+    func toggle() {
+        if panel.isVisible {
+            hide()
+        } else {
+            show()
+        }
+    }
+
+    func show() {
+        // Capture the frontmost app BEFORE making the panel key.
+        // The panel is non-activating, so frontmostApplication won't change —
+        // but we must capture it now before any activation could occur.
+        previousApp = NSWorkspace.shared.frontmostApplication
+
+        // Center the panel on the screen that contains the mouse cursor,
+        // placed slightly above vertical center (Spotlight/Raycast convention).
+        if let screen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) })
+            ?? NSScreen.main {
+            let screenFrame = screen.visibleFrame
+            let panelSize = panel.frame.size
+            let origin = NSPoint(
+                x: screenFrame.midX - panelSize.width / 2,
+                y: screenFrame.midY + screenFrame.height * 0.1
+            )
+            panel.setFrameOrigin(origin)
+        }
+
+        panel.shownAt = Date()
+        panel.makeKeyAndOrderFront(nil)
+
+        // @FocusState is unreliable when a view first appears inside NSPanel (race with
+        // SwiftUI responder chain settling). Delayed fallback ensures focus lands correctly.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            guard let self else { return }
+            self.panel.makeFirstResponder(self.panel.contentView)
+        }
+    }
+
+    func hide() {
+        panel.orderOut(nil)
+        restoreFocus()
+    }
+
+    // MARK: Focus Restoration
+
+    private func restoreFocus() {
+        previousApp?.activate(options: .activateIgnoringOtherApps)
+        previousApp = nil
+    }
+
+    // MARK: Paste and Hide
+
+    /// Writes `content` to the system pasteboard, then hides the panel and restores focus.
+    /// Plan 02 calls this from the Return key handler in ClipboardOverlayView.
+    func pasteAndHide(content: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(content, forType: .string)
+        hide()
+    }
+
+    // MARK: Content Injection
+
+    /// Replaces the panel's content view with a new SwiftUI view.
+    /// Plan 02 calls this to inject the real ClipboardOverlayView.
+    func setContentView<V: View>(_ view: V) {
+        panel.contentView = NSHostingView(rootView: view)
+    }
+}
