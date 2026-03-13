@@ -4,7 +4,7 @@ milestone: v2.0
 milestone_name: Overlay UI & Theming
 status: planning
 stopped_at: Completed 12-overlay-panel-02-PLAN.md
-last_updated: "2026-03-13T09:45:42.230Z"
+last_updated: "2026-03-13T10:12:15.226Z"
 last_activity: 2026-03-13 — v2.0 roadmap created (phases 12-14)
 progress:
   total_phases: 14
