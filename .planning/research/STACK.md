@@ -1,255 +1,290 @@
-# Stack Research: v1.1 More Control
+# Stack Research: v2.0 Overlay UI & Theming
 
-**Project:** clipass v1.1
-**Researched:** 2026-02-06
-**Focus:** Stack additions for settings/configuration features
+**Project:** clipass v2.0
+**Researched:** 2026-03-13
+**Focus:** Stack additions for overlay panel, Raycast-style theming, and inline text editor
 
 ## Executive Summary
 
-v1.1 requires **one new dependency** (LaunchAtLogin-Modern) and **zero changes** to existing stack. The existing SwiftUI, SwiftData, and KeyboardShortcuts infrastructure handles all other requirements. Pattern matching uses Swift's built-in `Regex` (already in use for transforms).
+v2.0 requires **zero new Swift Package dependencies**. All three new features — floating overlay panel, theme system, and inline text editor — are buildable with existing stack (AppKit/SwiftUI bridging already used, `@FocusState` is built-in, SwiftUI Environment theming is native). The overlay window uses a raw `NSPanel` subclass, theming uses a custom `@Observable` class injected via Environment, and inline editing uses `TextEditor` with `@FocusState`. The only addition to `KeyboardShortcuts` is registering a second shortcut name — same library, already a dependency.
 
 ## New Dependencies
 
-### LaunchAtLogin-Modern (Required)
+**None required.**
 
-| Attribute | Value |
-|-----------|-------|
-| Package | `https://github.com/sindresorhus/LaunchAtLogin-Modern` |
-| Version | v1.1.0 (released 2023-12-21) |
-| Requirement | macOS 13+ (clipass targets macOS 14, ✓ compatible) |
-| Purpose | "Start on login" toggle |
-
-**Why this library:**
-- **Drop-in SwiftUI component**: `LaunchAtLogin.Toggle()` is literally one line in Settings
-- **Same author as KeyboardShortcuts**: Sindre Sorhus maintains both, consistent API patterns
-- **Modern implementation**: Uses SMAppService (macOS 13+) which is the current Apple-recommended approach
-- **Sandboxed & Mac App Store ready**: No deprecated APIs
-
-**Integration:**
-```swift
-// Package.swift - add dependency
-.package(url: "https://github.com/sindresorhus/LaunchAtLogin-Modern", from: "1.1.0"),
-
-// SettingsView.swift - use component
-import LaunchAtLogin
-
-LaunchAtLogin.Toggle("Start at login")
-```
-
-**Confidence:** HIGH (verified via official GitHub, tested API stability)
+All capabilities needed are available in the existing stack or via AppKit bridging patterns already in use.
 
 ## Existing Stack Extensions
 
-### KeyboardShortcuts — Already Integrated
+### 1. NSPanel Subclass — Overlay Window
 
-The app already uses KeyboardShortcuts v2.x for `Cmd+Shift+V`. For hotkey customization, just add the `Recorder` UI component:
+The overlay panel cannot use SwiftUI's `Window` scene or `MenuBarExtra` — both have constraints (activation behavior, positioning) that break the Raycast-style experience. The solution is a raw `NSPanel` subclass bridged to SwiftUI via `NSViewControllerRepresentable` hosting.
+
+**Why NSPanel over NSWindow:**
+- `NSPanel` supports `.nonactivatingPanel` style mask — panel shows without stealing focus from the frontmost app
+- Appropriate for palette/utility windows that float above normal windows
+- `animationBehavior = .utilityWindow` gives the fast pop-in/pop-out feel
+
+**Key NSPanel configuration:**
 
 ```swift
-// Already have:
-extension KeyboardShortcuts.Name {
-    static let toggleClipboard = Self("toggleClipboard", default: .init(.v, modifiers: [.command, .shift]))
-}
-
-// Just add to Settings:
-KeyboardShortcuts.Recorder("Global Hotkey:", name: .toggleClipboard)
-```
-
-**Current version:** 2.x (Package.swift says `from: "2.0.0"`)
-**Latest version:** 2.4.0 (2025-09-18)
-
-**Recommendation:** Keep current version constraint. No API changes needed, just add UI.
-
-**Confidence:** HIGH (current code verified, README confirms Recorder usage)
-
-### SwiftData — Already Integrated
-
-Used for ClipboardItem, TransformRule, Hook models. For new settings:
-
-**Settings that belong in SwiftData:**
-- IgnoredApp patterns (user-created list of bundle IDs or regex patterns)
-- ContentIgnorePattern rules (similar structure to TransformRule)
-- SensitivePattern rules for redaction
-
-**Why SwiftData for these:**
-- Already using SwiftData for similar data (TransformRule has pattern + enabled + order)
-- User creates/deletes multiple entries
-- Benefits from same UI patterns as Rules/Hooks tabs
-
-**Model additions needed:**
-```swift
-@Model
-class IgnoredApp {
-    var bundleIdPattern: String  // Exact match or regex
-    var isRegex: Bool
-    var isEnabled: Bool
-}
-
-@Model
-class ContentIgnorePattern {
-    var pattern: String  // Regex to skip storing
-    var name: String
-    var isEnabled: Bool
-}
-
-@Model
-class SensitivePattern {
-    var pattern: String  // Regex to detect sensitive content
-    var name: String
-    var redactWith: String  // e.g., "••••••" or "[REDACTED]"
-    var isEnabled: Bool
-}
-```
-
-**Confidence:** HIGH (matches existing patterns in codebase)
-
-### UserDefaults — For Simple Preferences
-
-For scalar settings that don't need complex storage:
-
-| Setting | Type | Default | Storage |
-|---------|------|---------|---------|
-| maxHistoryItems | Int | 100 | UserDefaults |
-| autoCleanupDays | Int | 30 (0 = disabled) | UserDefaults |
-| previewTruncationLength | Int | 50 | UserDefaults |
-| cleanInvisibleChars | Bool | true | UserDefaults |
-
-**Implementation options:**
-
-1. **Native `@AppStorage`** (Recommended):
-```swift
-@AppStorage("maxHistoryItems") var maxHistoryItems: Int = 100
-@AppStorage("previewTruncationLength") var previewTruncationLength: Int = 50
-```
-
-2. **Sindre's Defaults library** (Alternative):
-   - Version: 9.0.6 (2025-10-12)
-   - Pros: Type-safe keys, observation, Codable support
-   - Cons: Another dependency for simple preferences
-
-**Recommendation:** Use native `@AppStorage` for scalar settings. No additional dependency needed. SwiftUI's built-in property wrapper handles:
-- Automatic UI binding
-- Persistence to UserDefaults
-- Type safety
-
-**Confidence:** HIGH (standard SwiftUI pattern)
-
-### Swift Regex — Built-in, Already Used
-
-The app already uses Swift's native `Regex` in TransformEngine:
-```swift
-let regex = try Regex(rule.pattern)
-result = result.replacing(regex, with: rule.replacement)
-```
-
-For sensitive content detection and content ignore patterns, the same approach applies:
-```swift
-// Check if content matches any sensitive pattern
-for pattern in sensitivePatterns {
-    if let _ = content.firstMatch(of: try Regex(pattern.pattern)) {
-        // Content is sensitive, redact in display
+final class OverlayPanel: NSPanel {
+    init<Content: View>(@ViewBuilder content: () -> Content) {
+        super.init(
+            contentRect: .zero,
+            styleMask: [.nonactivatingPanel, .fullSizeContentView, .borderless],
+            backing: .buffered,
+            defer: false
+        )
+        isFloatingPanel = true
+        level = .floating
+        isMovableByWindowBackground = true
+        hidesOnDeactivate = false
+        animationBehavior = .utilityWindow
+        isOpaque = false
+        backgroundColor = .clear
+        hasShadow = true
+        contentViewController = NSHostingController(rootView: content())
     }
 }
 ```
 
-**No additional libraries needed.** Swift's Regex is:
-- Type-safe
-- Fast (compiled once, reused)
-- Full PCRE2 support
+**Show/hide pattern:**
 
-**Confidence:** HIGH (verified in existing codebase)
+```swift
+// Show: position near screen center (or last position), then order front
+panel.setFrameOriginToScreenCenter()
+panel.orderFrontRegardless()
 
-## Not Recommended
+// Hide: close or orderOut
+panel.orderOut(nil)
+```
 
-### Sindre's Defaults Library
+**Activation via KeyboardShortcuts:** The existing `KeyboardShortcuts` library handles the global shortcut. Register a second name alongside the existing `toggleClipboard`:
 
-**Why skip:**
-- Only 4 scalar settings need UserDefaults storage
-- `@AppStorage` handles this natively with zero dependencies
-- Defaults library adds value for complex types (Codable enums, custom types) — not needed here
-- Keep dependency count minimal
+```swift
+extension KeyboardShortcuts.Name {
+    static let toggleClipboard = Self("toggleClipboard", default: .init(.v, modifiers: [.command, .shift]))
+    static let toggleOverlay = Self("toggleOverlay", default: .init(.space, modifiers: [.command, .shift]))
+}
+```
 
-**Exception:** If future versions need complex serialization (e.g., storing enum arrays, custom types with migrations), reconsider.
+No library upgrade needed. `KeyboardShortcuts` is already at `from: "2.0.0"` (latest: 2.4.0). The `onKeyUp` API handles multiple names independently.
 
-### Separate Pattern Matching Library
+**Visual material (background blur):**
 
-**Why skip:**
-- Swift's built-in `Regex` handles all use cases
-- Already proven in TransformEngine
-- No benefit from external libraries for text matching
+`NSVisualEffectView` via `NSViewRepresentable` provides the frosted glass background. This works on macOS 14 (clipass minimum target). The newer `.glassEffect` modifier is macOS 26 only — do not use it.
 
-### Service Management Framework Directly
+```swift
+struct VisualEffectBackground: NSViewRepresentable {
+    var material: NSVisualEffectView.Material = .hudWindow
+    var blendingMode: NSVisualEffectView.BlendingMode = .behindWindow
 
-**Why skip:**
-- LaunchAtLogin-Modern wraps SMAppService cleanly
-- Direct SMAppService usage requires more boilerplate
-- Library handles edge cases (sandboxing, app relocation)
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = material
+        view.blendingMode = blendingMode
+        view.state = .active
+        return view
+    }
 
-### Storing Settings in SwiftData
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        nsView.material = material
+        nsView.blendingMode = blendingMode
+    }
+}
+```
 
-**Why skip for scalars:**
-- SwiftData is overkill for `maxHistoryItems = 100`
-- Requires model class, fetch descriptor, context injection
-- UserDefaults via @AppStorage is 1 line
+**Confidence:** HIGH (NSPanel pattern is well-documented, AppKit is stable, NSVisualEffectView confirmed for macOS 14+)
 
-**Use SwiftData for:** Lists of patterns (ignored apps, content patterns, sensitive patterns)
-**Use UserDefaults for:** Individual settings (limits, toggles, lengths)
+---
+
+### 2. Theme System — SwiftUI Environment + @Observable
+
+No library needed. SwiftUI's Environment injection and `@Observable` (macOS 14+) handle the full theme system.
+
+**Pattern:** Define a `ThemeDefinition` struct with all color tokens. Store the active theme name in `@AppStorage`. Inject a computed `AppTheme` observable into the view hierarchy via a custom `EnvironmentKey`.
+
+**Why this approach over alternatives:**
+- `@Observable` + `EnvironmentObject` propagates changes automatically — every view that reads `@Environment(\.appTheme)` updates when theme switches
+- `@AppStorage("activeTheme")` persists selection across launches without SwiftData overhead
+- No extra dependency (vs. third-party theme libraries)
+- Predefined themes are just static `ThemeDefinition` instances — adding new themes requires zero architecture change
+
+**Core types:**
+
+```swift
+struct ThemeDefinition: Identifiable, Codable {
+    let id: String           // e.g. "raycast-dark"
+    let name: String         // e.g. "Raycast Dark"
+    var background: Color
+    var surface: Color       // item row background
+    var surfaceHover: Color
+    var text: Color
+    var textSecondary: Color
+    var accent: Color        // selection, buttons
+    var border: Color
+    var searchBarBackground: Color
+}
+
+@Observable
+final class AppTheme {
+    var current: ThemeDefinition
+
+    static let predefined: [ThemeDefinition] = [
+        .raycastDark,
+        .raycastLight,
+        .midnight,
+        .solarizedDark,
+    ]
+}
+```
+
+**Environment injection (macOS 14+ @Entry macro):**
+
+```swift
+extension EnvironmentValues {
+    @Entry var appTheme: AppTheme = AppTheme()
+}
+```
+
+Apply at overlay root view: `.environment(\.appTheme, services.appTheme)`
+
+**Color scheme interaction:** Themes are independent of system dark/light mode. The overlay forces its own color scheme via `.preferredColorScheme(.dark)` or `.light` based on the theme's declared appearance. This prevents the system from overriding theme colors.
+
+**UserDefaults key:** `"activeThemeId"` — persists the selected theme ID across launches.
+
+**Confidence:** HIGH (`@Observable` verified available macOS 14+, `@Entry` macro verified Xcode 16+/Swift 5.10+, `@AppStorage` is standard SwiftUI)
+
+---
+
+### 3. Inline Text Editor — TextEditor + @FocusState
+
+No library needed. SwiftUI's `TextEditor` with `@FocusState` and a two-state (display/edit) toggle is the correct approach for macOS 14+.
+
+**Pattern:** Each clipboard item row in the overlay has two rendering modes — display (read-only `Text`) and edit (`TextEditor`). A tap/click toggles the mode. `@FocusState` auto-focuses the editor when entering edit mode.
+
+**Why TextEditor over TextField:**
+- Clipboard items are multiline — `TextEditor` scrolls and wraps, `TextField` (even with `axis: .vertical`) has UX quirks on macOS
+- Native undo/redo support comes for free
+- Supports standard text editing keyboard shortcuts (Cmd+A, Cmd+Z, etc.)
+
+**Core pattern:**
+
+```swift
+struct InlineEditableItem: View {
+    @Binding var content: String
+    @State private var editBuffer: String = ""
+    @State private var isEditing = false
+    @FocusState private var editorFocused: Bool
+
+    var body: some View {
+        Group {
+            if isEditing {
+                TextEditor(text: $editBuffer)
+                    .focused($editorFocused)
+                    .onAppear { editorFocused = true }
+                    .onExitCommand { cancelEdit() }     // Escape cancels
+                    .onSubmit { commitEdit() }           // Enter commits (if desired)
+            } else {
+                Text(content)
+                    .onTapGesture(count: 2) { startEdit() }   // double-click to edit
+            }
+        }
+    }
+
+    private func startEdit() {
+        editBuffer = content
+        isEditing = true
+    }
+
+    private func commitEdit() {
+        content = editBuffer
+        isEditing = false
+    }
+
+    private func cancelEdit() {
+        editBuffer = content
+        isEditing = false
+    }
+}
+```
+
+**Commit triggers:**
+- Click outside the editor (`.onChange(of: editorFocused)` — when focus lost, commit)
+- Explicit "Save" button in the row toolbar
+- Do NOT use Enter to commit (clipboard content can be multiline — Enter is content, not confirm)
+
+**SwiftData write-back:** The `content` binding passes through to the `ClipboardItem.content` property. The existing SwiftData context handles persistence — no new model fields needed for editing.
+
+**Confidence:** HIGH (TextEditor, FocusState, and onExitCommand are stable macOS 14+ SwiftUI APIs)
+
+---
 
 ## Package.swift Changes
 
-```swift
-// swift-tools-version: 5.9
-import PackageDescription
+**No changes required.** The existing dependency block remains:
 
-let package = Package(
-    name: "clipass",
-    platforms: [
-        .macOS(.v14)
-    ],
-    dependencies: [
-        .package(url: "https://github.com/sindresorhus/KeyboardShortcuts", from: "2.0.0"),
-        .package(url: "https://github.com/sindresorhus/LaunchAtLogin-Modern", from: "1.1.0"),  // NEW
-    ],
-    targets: [
-        .executableTarget(
-            name: "clipass",
-            dependencies: [
-                "KeyboardShortcuts",
-                .product(name: "LaunchAtLogin", package: "LaunchAtLogin-Modern"),  // NEW
-            ],
-            path: "clipass",
-            exclude: ["Info.plist"]
-        ),
-    ]
-)
+```swift
+dependencies: [
+    .package(url: "https://github.com/sindresorhus/KeyboardShortcuts", from: "2.0.0"),
+    .package(url: "https://github.com/sindresorhus/LaunchAtLogin-Modern", from: "1.0.0"),
+],
 ```
 
-## Integration Summary
+Optionally upgrade KeyboardShortcuts constraint to `from: "2.4.0"` (latest as of 2025-09-18) to pick up bug fixes, but it is not required — the API used is stable across 2.x.
 
-| v1.1 Feature | Stack Component | New/Existing |
-|--------------|-----------------|--------------|
-| Start on login | LaunchAtLogin-Modern | **NEW** |
-| Hotkey customization | KeyboardShortcuts.Recorder | Existing |
-| Ignored app patterns | SwiftData model | Existing |
-| Content ignore patterns | SwiftData model | Existing |
-| Sensitive content redaction | SwiftData model + Swift Regex | Existing |
-| History max items | @AppStorage | Existing |
-| Auto-cleanup age | @AppStorage | Existing |
-| Preview truncation | @AppStorage | Existing |
-| Clean invisible chars | @AppStorage | Existing |
+---
+
+## Alternatives Considered
+
+| Category | Recommended | Alternative | Why Not |
+|----------|-------------|-------------|---------|
+| Overlay window | NSPanel subclass | SwiftUI `Window` scene | Window scene activates app, cannot `.nonactivatingPanel` |
+| Overlay window | NSPanel subclass | Third-party (Luminare, etc.) | Adds a dependency for a well-understood 30-line pattern |
+| Visual background | NSVisualEffectView bridge | `.glassEffect` | macOS 26 only; clipass targets macOS 14 |
+| Theme system | @Observable + Environment | Third-party theme library | Zero-dependency native solution is sufficient for a color token system |
+| Theme persistence | @AppStorage (string ID) | SwiftData | No user-created list; fixed set of predefined + one custom. @AppStorage is sufficient |
+| Inline editor | TextEditor + @FocusState | NSTextView bridge | NSTextView bridge adds AppKit complexity; TextEditor is sufficient for plain text |
+| Second shortcut | New KeyboardShortcuts.Name | Separate shortcut manager | Same library already in project; registering a second name is trivial |
+
+---
+
+## Integration Points
+
+| v2.0 Feature | Stack Component | Mechanism | New/Existing |
+|--------------|-----------------|-----------|--------------|
+| Overlay panel window | NSPanel subclass | AppKit + NSHostingController | New (no dependency) |
+| Overlay show/hide | KeyboardShortcuts `.toggleOverlay` | New `Name` in existing lib | Existing library |
+| Frosted glass background | NSVisualEffectView bridge | NSViewRepresentable | New (no dependency) |
+| Theme tokens | `AppTheme` + `ThemeDefinition` | @Observable + Environment | New (no dependency) |
+| Theme persistence | @AppStorage | "activeThemeId" UserDefaults key | Existing pattern |
+| Click-to-edit | TextEditor + @FocusState | SwiftUI state toggling | New (no dependency) |
+| Edit persistence | SwiftData `ClipboardItem.content` | Existing model field | Existing model |
+
+---
 
 ## Confidence Assessment
 
 | Area | Level | Reason |
 |------|-------|--------|
-| LaunchAtLogin-Modern | HIGH | Official GitHub verified, API documented |
-| KeyboardShortcuts Recorder | HIGH | In existing dependency, README confirms UI |
-| @AppStorage for settings | HIGH | Standard SwiftUI, no verification needed |
-| SwiftData for patterns | HIGH | Matches existing TransformRule pattern |
-| Swift Regex | HIGH | Already in production use in codebase |
+| NSPanel overlay pattern | HIGH | Well-established macOS pattern, confirmed working in production apps (Alfred, Raycast, many utilities) |
+| KeyboardShortcuts multi-shortcut | HIGH | Verified in README — multiple `Name` declarations are the documented pattern |
+| NSVisualEffectView bridge | HIGH | Standard AppKit API, macOS 14+, used broadly |
+| @Observable theme system | HIGH | @Observable available macOS 14+ (clipass minimum), @Entry macro Xcode 16+/Swift 5.10+ |
+| TextEditor inline editing | HIGH | Stable SwiftUI APIs, FocusState confirmed macOS 14+ |
+| No new dependencies needed | HIGH | Each feature has a clear native/AppKit path with zero external libraries |
+
+---
 
 ## Sources
 
-- LaunchAtLogin-Modern: https://github.com/sindresorhus/LaunchAtLogin-Modern (v1.1.0, verified 2026-02-06)
-- KeyboardShortcuts: https://github.com/sindresorhus/KeyboardShortcuts (v2.4.0, verified 2026-02-06)
-- Defaults (evaluated, not recommended): https://github.com/sindresorhus/Defaults (v9.0.6)
-- Existing clipass source: `/clipass/` directory in repo
+- NSPanel nonactivatingPanel: https://developer.apple.com/documentation/appkit/nswindow/stylemask-swift.struct/nonactivatingpanel
+- Floating panel SwiftUI pattern: https://cindori.com/developer/floating-panel
+- Spotlight-like window: https://www.markusbodner.com/til/2021/02/08/create-a-spotlight/alfred-like-window-on-macos-with-swiftui/
+- KeyboardShortcuts (v2.4.0, latest): https://github.com/sindresorhus/KeyboardShortcuts/releases
+- @Entry macro custom environment values: https://www.avanderlee.com/swiftui/entry-macro-custom-environment-values/
+- TextEditor SwiftUI: https://developer.apple.com/documentation/swiftui/texteditor
+- Editable list text items macOS: https://www.polpiella.dev/swiftui-editable-list-text-items
+- NSVisualEffectView for macOS 14: https://onmyway133.com/posts/how-to-make-visual-effect-blur-in-swiftui-for-macos/
+- glassEffect macOS 26 limitation: https://www.klaritydisk.com/blog/building-liquid-glass-ui-macos

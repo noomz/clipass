@@ -1,674 +1,544 @@
-# Pitfalls Research: v1.1 More Control
+# Pitfalls Research: v2.0 Overlay UI, Theming, and Inline Editor
 
-**Domain:** Adding settings/configuration to an existing macOS menu bar app
-**Researched:** 2026-02-06
-**Confidence:** HIGH (verified with official packages, real-world issues)
+**Domain:** Adding overlay UI panel, Raycast-style theming, and click-to-edit inline text editor to an existing macOS SwiftUI clipboard manager
+**Researched:** 2026-03-13
+**Confidence:** HIGH (verified with Apple developer forums, community post-mortems, official docs)
 
-## LaunchAtLogin Pitfalls
+---
 
-### Pitfall 1: Auto-enabling on First Launch (App Store Rejection)
+## Critical Pitfalls
 
-**What goes wrong:** Setting `LaunchAtLogin.isEnabled = true` by default or on first launch causes App Store rejection.
+Mistakes that cause rewrites or major regressions.
 
-**Why it happens:** Apple's Mac App Store guidelines require "launch at login" functionality to be enabled only in response to explicit user action.
+---
 
-**Consequences:** App Store rejection, wasted review cycles.
+### Pitfall 1: NSPanel Steals Focus From the Previously Active App
+
+**What goes wrong:** When the global hotkey summons the overlay, the previously focused app loses focus. When the overlay is dismissed, focus does not return to that app. The user must click back into their prior app manually.
+
+**Why it happens:** The default behavior of `NSWindow` (and a naively configured `NSPanel`) is to activate the owning application when it becomes key. Apps using `.accessory` activation policy still steal focus from the front app if the panel is configured without `.nonactivatingPanel`.
+
+**Consequences:**
+- The overlay behaves nothing like Spotlight or Raycast
+- Users must re-click their previous app after every paste
+- Feels broken immediately on first use
 
 **Warning signs:**
-- Any code path that sets `isEnabled = true` without direct user interaction
-- Setting default value in UserDefaults/AppStorage
+- App appears in the Dock briefly when overlay opens
+- Previously active app deactivates its title bar when overlay appears
+- After dismissing overlay, cursor blinks in a blank state
 
 **Prevention:**
 ```swift
-// WRONG - Auto-enable is forbidden
-@AppStorage("launchAtLogin") var launchAtLogin = true
-
-// WRONG - Setting on first launch
-if isFirstLaunch {
-    LaunchAtLogin.isEnabled = true
+class OverlayPanel: NSPanel {
+    init(contentRect: NSRect, backing: NSWindow.BackingStoreType, defer flag: Bool) {
+        super.init(
+            contentRect: contentRect,
+            // .nonactivatingPanel is the critical mask here
+            styleMask: [.nonactivatingPanel, .fullSizeContentView, .borderless],
+            backing: backing,
+            defer: flag
+        )
+        isFloatingPanel = true
+        level = .floating
+        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        isOpaque = false
+        hasShadow = true
+        // Do NOT override canBecomeKey to return false here — see Pitfall 4
+    }
 }
-
-// CORRECT - User must toggle explicitly
-LaunchAtLogin.Toggle() // Built-in toggle handles this correctly
 ```
 
-**Source:** [LaunchAtLogin-Modern README](https://github.com/sindresorhus/LaunchAtLogin-Modern) - explicit warning about App Store guidelines.
+Set activation policy on app startup:
+```swift
+// applicationWillFinishLaunching
+NSApp.setActivationPolicy(.prohibited)
+// applicationDidFinishLaunching
+NSApp.setActivationPolicy(.accessory)
+```
 
-**Phase impact:** Settings UI phase — ensure toggle is disabled by default.
+**Detection:** Test by opening the overlay while a Terminal window is focused. Terminal should remain the active app (blue title bar) throughout.
+
+**Phase impact:** Overlay panel — implement `.nonactivatingPanel` before any other overlay work.
 
 ---
 
-### Pitfall 2: Using Legacy Package Instead of Modern API
+### Pitfall 2: Environment / Theme Object Lost at the AppKit Boundary
 
-**What goes wrong:** Using `LaunchAtLogin` (legacy) instead of `LaunchAtLogin-Modern` for macOS 13+ targets requires complex helper app setup that's easy to misconfigure.
+**What goes wrong:** The overlay panel is created via `NSHostingView` or `NSHostingController`, which creates a new SwiftUI view hierarchy disconnected from the main app's environment. Any `@EnvironmentObject` injected into the main `MenuBarExtra` scene — including a theme object — will be absent in the overlay.
 
-**Why it happens:** Search results often show the legacy package first; developers don't realize a simpler modern API exists.
+**Why it happens:** SwiftUI's environment only propagates down the view hierarchy. An `NSPanel` with `NSHostingView` is a new root — it has no parent in the SwiftUI hierarchy to inherit from.
 
 **Consequences:**
-- Build errors: "No such file or directory" when archiving
-- Code signing issues with helper app
-- Complex "Run Script Phase" setup required
-- Build fails if script phase order is wrong
+- Overlay views crash at runtime with "No ObservableObject of type ThemeManager found"
+- Theme changes in Settings don't propagate to the overlay
+- The crash is environment-dependent (works in previews, crashes in production)
 
 **Warning signs:**
-- Build phase scripts copying helper apps
-- References to `LaunchAtLoginHelper.app`
-- Using `SMLoginItemSetEnabled` directly
+- `@EnvironmentObject var theme: ThemeManager` in any overlay view
+- Creating `NSHostingView(rootView: OverlayView())` without re-injecting the theme
+- Works in Xcode previews but crashes when opened from the hotkey
 
 **Prevention:**
 ```swift
-// For macOS 13+, use the modern package:
-// Package: https://github.com/sindresorhus/LaunchAtLogin-Modern
+// Re-inject all required environment objects at the NSHostingView boundary
+let themeManager = AppServices.shared.themeManager
 
-import LaunchAtLogin
-
-// That's it - no build scripts, no helper apps
-LaunchAtLogin.Toggle() // SwiftUI toggle
-LaunchAtLogin.isEnabled = true // Programmatic access
+let hostingView = NSHostingView(
+    rootView: OverlayView()
+        .environmentObject(themeManager)
+        // Re-inject all other shared objects the overlay uses
+)
+panel.contentView = hostingView
 ```
 
-**Source:** LaunchAtLogin-Modern vs LaunchAtLogin-Legacy comparison. clipass targets macOS 14+, so only needs modern package.
+Use a single shared `ThemeManager` singleton on `AppServices.shared` so both scenes reference the same instance.
 
-**Phase impact:** Stack selection — use `LaunchAtLogin-Modern` package, not legacy.
+**Phase impact:** Overlay panel + theming — must re-inject environment objects every time an `NSPanel`/`NSHostingView` is created.
 
 ---
 
-### Pitfall 3: Testing LaunchAtLogin with Multiple App Builds
+### Pitfall 3: Multiple Overlay Instances Accumulate on Repeated Hotkey Presses
 
-**What goes wrong:** Launch at login doesn't work during development/testing, even after enabling it.
+**What goes wrong:** Each hotkey press creates and shows a new `NSPanel` instead of toggling the existing one. After 10 presses the user has 10 invisible panels consuming memory. Eventually behavior becomes undefined.
 
-**Why it happens:** macOS caches the login item and may pick an older build of the app that doesn't have the feature enabled.
-
-**Consequences:** Developers think the feature is broken, waste time debugging.
-
-**Warning signs:**
-- Feature works in production but not during testing
-- Multiple app copies in Applications, Downloads, etc.
-- Inconsistent behavior between clean and dirty builds
-
-**Prevention:**
-1. Bump version & build number before testing
-2. Delete DerivedData: `rm -rf ~/Library/Developer/Xcode/DerivedData`
-3. Search for and remove all other builds of the app
-4. Clear login items: System Preferences → Users & Groups → Login Items
-
-**Source:** [LaunchAtLogin FAQ](https://github.com/sindresorhus/LaunchAtLogin-Legacy#my-app-doesnt-launch-at-login-when-testing)
-
-**Phase impact:** QA/Testing phase — document this for testers.
-
----
-
-## Pattern Matching Pitfalls
-
-### Pitfall 4: Regex Compilation on Every Clipboard Change
-
-**What goes wrong:** Compiling regex patterns on every clipboard poll (500ms) wastes CPU and delays clipboard processing.
-
-**Why it happens:** Current `TransformEngine.transform()` creates new `Regex` objects on every call:
-```swift
-// Current implementation (lines 92-94):
-let regex = try Regex(rule.pattern)
-result = result.replacing(regex, with: rule.replacement)
-```
+**Why it happens:** The hotkey handler allocates a new panel on each call without checking whether one already exists.
 
 **Consequences:**
-- Increased CPU usage (regex compilation is expensive)
-- Battery drain on laptops
-- Delays in clipboard processing with many rules
+- Memory leak
+- Multiple `OverlayPanelController` instances each polling SwiftData
+- Unpredictable panel position (each new panel opens at the default position)
 
 **Warning signs:**
-- CPU spikes correlating with clipboard activity
-- Noticeable lag when pasting after many rules added
-- Energy impact in Activity Monitor
+- Hotkey handler creates `OverlayPanel()` inline without a stored reference
+- No `isVisible` check before `makeKeyAndOrderFront`
 
 **Prevention:**
 ```swift
-// Cache compiled regex patterns
-class PatternMatcher {
-    private var compiledPatterns: [UUID: Regex<AnyRegexOutput>] = [:]
-    
-    func getPattern(for rule: TransformRule) -> Regex<AnyRegexOutput>? {
-        if let cached = compiledPatterns[rule.id] {
-            return cached
+final class OverlayPanelController {
+    static let shared = OverlayPanelController()
+    private var panel: OverlayPanel?
+
+    func toggle() {
+        if let panel, panel.isVisible {
+            panel.orderOut(nil)
+            return
         }
-        guard let regex = try? Regex(rule.pattern) else { return nil }
-        compiledPatterns[rule.id] = regex
-        return regex
+        if panel == nil {
+            panel = buildPanel()
+        }
+        panel?.makeKeyAndOrderFront(nil)
     }
-    
-    func invalidate(ruleId: UUID) {
-        compiledPatterns.removeValue(forKey: ruleId)
+
+    private func buildPanel() -> OverlayPanel { /* ... */ }
+}
+```
+
+**Phase impact:** Overlay panel — singleton controller with lazy panel creation, tested on rapid repeated hotkey presses.
+
+---
+
+### Pitfall 4: TextField in Overlay Receives No Keyboard Input
+
+**What goes wrong:** The search TextField in the overlay is visible but typing does nothing. The first responder never moves to the text field.
+
+**Why it happens:** Two sub-problems combine:
+1. A panel with `.nonactivatingPanel` does not automatically become the key window. Keyboard events go to the previous key window.
+2. SwiftUI's `@FocusState` / `.defaultFocus()` requires the window to be key before focus can be set.
+
+An additional trap: overriding `canBecomeKey` to `true` on `NSPanel` without care can cause a crash after ~3 seconds.
+
+**Consequences:**
+- The overlay appears but the user cannot search — app feels completely broken
+
+**Warning signs:**
+- TextField is rendered but typing goes to the underlying app
+- `@FocusState` is set in `onAppear` but has no effect
+
+**Prevention:**
+```swift
+// The panel must explicitly become key for text input to work.
+// makeKeyAndOrderFront makes it key AND orders it front simultaneously.
+panel.makeKeyAndOrderFront(nil)
+
+// Override canBecomeKey on the NSPanel subclass — this is REQUIRED
+// for a non-activating panel to accept keyboard input:
+override var canBecomeKey: Bool { true }
+
+// Do NOT also override canBecomeMain to true — that combination crashes.
+override var canBecomeMain: Bool { false }
+
+// Then use @FocusState with a small async dispatch to set initial focus:
+.onAppear {
+    DispatchQueue.main.async {
+        isFocused = true
     }
 }
 ```
 
-**Phase impact:** Pattern matching implementation — cache compiled patterns, invalidate on rule edit.
+**Detection:** Open overlay, type immediately. Characters should appear in the search field.
+
+**Phase impact:** Overlay panel — validate keyboard input before adding any other overlay features.
 
 ---
 
-### Pitfall 5: User-Supplied Regex Without Validation
+### Pitfall 5: Inline Edit Saves Pollute Clipboard History
 
-**What goes wrong:** Invalid regex patterns cause silent failures or confusing error states in the UI.
+**What goes wrong:** When the user edits a clipboard item inline and saves, the edited text is written to `NSPasteboard`. The 500ms clipboard monitor then detects this as a new clipboard change and stores the edited value as a *second, new* item — duplicating history.
 
-**Why it happens:** Users can type any text as a "pattern" — not all strings are valid regex.
+**Why it happens:** The existing clipboard polling loop does not distinguish between user-initiated pastes and programmatic writes by the app itself.
 
 **Consequences:**
-- Rules that never match (user thinks feature is broken)
-- Confusing error messages
-- Rules saved but non-functional
+- Every edit creates a duplicate entry
+- History grows uncontrollably with edited content
+- The original and edited versions both exist, confusing the user
 
 **Warning signs:**
-- Rule appears enabled but never applies
-- Console errors about invalid patterns
-- User reports "rules don't work"
+- Inline editor writes to `NSPasteboard.general` on commit
+- No "skip next poll" mechanism in `ClipboardMonitor`
 
 **Prevention:**
 ```swift
-// Validate regex before saving
-struct RuleEditorView: View {
-    @State private var patternError: String?
-    
-    func validatePattern(_ pattern: String) -> Bool {
-        do {
-            _ = try Regex(pattern)
-            patternError = nil
-            return true
-        } catch {
-            patternError = "Invalid pattern: \(error.localizedDescription)"
-            return false
+// In ClipboardMonitor: add a suppression flag
+var suppressNextChange = false
+
+// In the polling loop:
+if suppressNextChange {
+    suppressNextChange = false
+    lastChangeCount = NSPasteboard.general.changeCount
+    return
+}
+
+// In the inline editor commit handler:
+AppServices.shared.clipboardMonitor.suppressNextChange = true
+NSPasteboard.general.clearContents()
+NSPasteboard.general.setString(editedText, forType: .string)
+// Then update the SwiftData item directly — don't rely on the monitor
+item.content = editedText
+```
+
+Alternatively, do NOT write to the pasteboard on save — update only the SwiftData model. Only copy to pasteboard if the user explicitly pastes after editing.
+
+**Phase impact:** Inline editor — design the edit-commit flow before implementing the editor view.
+
+---
+
+## Moderate Pitfalls
+
+---
+
+### Pitfall 6: SwiftData `@Query` on the Overlay Re-fetches on Every Render
+
+**What goes wrong:** Using `@Query` directly in the overlay's root view causes SwiftData to re-execute the query on every view update, including animation frames. On a history of 500+ items, this causes visible lag in the overlay's search field responsiveness.
+
+**Why it happens:** `@Query` is designed for views that own their data display. When combined with fast SwiftUI re-renders (search text changes on every keystroke), the query can execute dozens of times per second.
+
+**Prevention:**
+- Use a `@StateObject` or `@Observable` view model that owns the query result and debounces search input before triggering a new fetch
+- Or pass a pre-fetched array from the parent scene via the overlay controller rather than querying inside the overlay
+
+```swift
+// Debounce search to avoid per-keystroke SwiftData fetch
+@State private var searchText = ""
+@State private var debouncedSearch = ""
+
+.onChange(of: searchText) { newValue in
+    Task {
+        try? await Task.sleep(nanoseconds: 150_000_000) // 150ms
+        debouncedSearch = newValue
+    }
+}
+// Use debouncedSearch in the @Query predicate
+```
+
+**Phase impact:** Overlay panel + search — test search responsiveness with 200+ history items.
+
+---
+
+### Pitfall 7: Theme Using Hardcoded Color Literals Breaks Dark Mode and Accent Overrides
+
+**What goes wrong:** Theme colors defined as `Color(red:green:blue:)` or hex constants don't adapt to system dark/light mode. If the user switches appearance while the overlay is open, the overlay's colors freeze.
+
+**Why it happens:** RGBA-constructed colors are static. They don't carry the appearance-adapting metadata that asset catalog colors or semantic colors do.
+
+**Consequences:**
+- Overlay looks wrong in Dark Mode even though the rest of the app adapts
+- Theme switching requires an app restart to take effect
+
+**Prevention:**
+```swift
+// Use NSColor with dynamic provider for theme-adaptive colors
+extension Color {
+    static func adaptive(light: Color, dark: Color) -> Color {
+        Color(NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+                ? NSColor(dark)
+                : NSColor(light)
+        })
+    }
+}
+
+// Theme tokens should wrap dynamic colors, not raw values
+struct ClipassTheme {
+    let background: Color      // Dynamic, not hardcoded
+    let primaryText: Color
+    let accentColor: Color
+}
+```
+
+**Phase impact:** Theming — define all colors through dynamic providers from the start, not hardcoded values.
+
+---
+
+### Pitfall 8: Theme Object Injected as `@EnvironmentObject` Breaks SwiftUI Styles
+
+**What goes wrong:** `@EnvironmentObject` is not reliably read by custom `ButtonStyle`, `TextFieldStyle`, or other `ViewStyle` implementations in SwiftUI. Attempting to theme buttons via a style that reads an `@EnvironmentObject` produces inconsistent results or runtime errors.
+
+**Why it happens:** SwiftUI's style system reads from `EnvironmentValues` (not `EnvironmentObject`). Only values stored via the `@Environment` key-path pattern propagate reliably into styles.
+
+**Prevention:**
+```swift
+// WRONG for styles:
+struct ThemeButtonStyle: ButtonStyle {
+    @EnvironmentObject var theme: ThemeManager  // Unreliable in styles
+}
+
+// CORRECT for styles — use EnvironmentValues:
+private struct ThemeKey: EnvironmentKey {
+    static let defaultValue = ClipassTheme.default
+}
+extension EnvironmentValues {
+    var clipassTheme: ClipassTheme {
+        get { self[ThemeKey.self] }
+        set { self[ThemeKey.self] = newValue }
+    }
+}
+struct ThemeButtonStyle: ButtonStyle {
+    @Environment(\.clipassTheme) var theme  // Reliable in styles
+}
+```
+
+**Phase impact:** Theming — use `EnvironmentValues` extension pattern for the theme, not `@EnvironmentObject`.
+
+---
+
+### Pitfall 9: Inline Editor Focus Conflicts With List Selection
+
+**What goes wrong:** The overlay's List/ScrollView intercepts click events for row selection before the inline editor's tap-to-edit gesture fires. Single-click selects the row; double-click (or a custom gesture) is needed to enter edit mode. If this is not explicitly designed, users can never enter edit mode, or they accidentally trigger edit mode when trying to select an item for paste.
+
+**Why it happens:** SwiftUI `List` consumes `.onTapGesture` on rows by default for selection. Adding a separate edit gesture creates a gesture conflict.
+
+**Consequences:**
+- Edit mode unreachable via single click
+- Or: edit mode triggers unintentionally when user intends to paste
+
+**Warning signs:**
+- `onTapGesture` on a row inside a `List` doesn't fire reliably
+- `@State var editingItemId` toggles unexpectedly
+
+**Prevention:**
+```swift
+// Use a deliberate double-tap to enter edit mode on list rows.
+// Single tap = select & copy; double tap = enter inline edit.
+ClipboardRowView(item: item, isEditing: editingId == item.id)
+    .onTapGesture(count: 2) {
+        editingId = item.id
+    }
+    .onTapGesture(count: 1) {
+        select(item)
+    }
+
+// When edit mode activates, give the TextEditor focus via @FocusState:
+.onChange(of: editingId) { id in
+    if id == item.id {
+        DispatchQueue.main.async { isEditorFocused = true }
+    }
+}
+```
+
+**Phase impact:** Inline editor — design the tap interaction model before implementation; test that paste and edit modes don't conflict.
+
+---
+
+### Pitfall 10: Inline Editor Undo History Shared With App-Level Undo
+
+**What goes wrong:** macOS's `NSUndoManager` is per-window. If the inline editor's TextEditor/TextField uses the window's shared undo manager, pressing Cmd+Z after editing can undo unrelated app-level changes, or the undo stack can be confusing when the user switches between editing and browsing.
+
+**Why it happens:** `TextEditor` and `TextField` automatically use the window's undo manager. In a single-window overlay, all edits share one stack.
+
+**Prevention:**
+- Scope edits using a separate `UndoManager` instance injected via the environment for the inline editor subtree
+- Or implement commit/discard semantics (Enter to commit, Esc to discard) that don't depend on undo at all — simpler and more predictable for a clipboard editor
+
+```swift
+// Simpler: commit/discard, no undo needed
+TextField("", text: $editBuffer, onCommit: {
+    item.content = editBuffer
+    editingId = nil
+})
+.onKeyPress(.escape) {
+    editBuffer = item.content  // Revert
+    editingId = nil
+    return .handled
+}
+```
+
+**Phase impact:** Inline editor — decide up front: undo stack or commit/discard. Commit/discard is recommended.
+
+---
+
+### Pitfall 11: Overlay Panel Size Resets to 500×500 After Each Open
+
+**What goes wrong:** The panel opens at an unexpected 500×500 size instead of the designed dimensions. This is a known NSPanel sizing bug when the panel is recreated between appearances.
+
+**Why it happens:** NSPanel has a default minimum content size that overrides specified sizes under certain style mask combinations. The bug is triggered by specific combinations of `styleMask` and `setContentSize` call order.
+
+**Prevention:**
+```swift
+// Set frame AFTER setting the content view, not before:
+panel.contentView = hostingView
+panel.setFrame(NSRect(x: 0, y: 0, width: 680, height: 460), display: false)
+
+// Also set min/max size to prevent auto-resize overrides:
+panel.minSize = NSSize(width: 680, height: 460)
+panel.maxSize = NSSize(width: 680, height: 460)
+```
+
+**Phase impact:** Overlay panel — verify panel dimensions are correct after 3+ open/close cycles.
+
+---
+
+### Pitfall 12: Second Global Hotkey Conflicts With Existing `toggleClipboard` Shortcut
+
+**What goes wrong:** Adding a second `KeyboardShortcuts.Name` for the overlay without testing creates a scenario where users accidentally assign both shortcuts to the same key combination. Neither works reliably, and there's no system-level deduplication.
+
+**Why it happens:** `KeyboardShortcuts` does not validate uniqueness across names. The user can set `.toggleClipboard` and `.toggleOverlay` to both be `Cmd+Shift+V`.
+
+**Consequences:**
+- Both handlers fire on the same keypress
+- Menu bar popup and overlay toggle simultaneously
+- Confusing, unpredictable behavior
+
+**Prevention:**
+```swift
+// In the shortcut recorder UI, validate no conflict with existing shortcuts:
+KeyboardShortcuts.Recorder("Overlay shortcut:", name: .toggleOverlay)
+    .onChange(of: KeyboardShortcuts.getShortcut(for: .toggleOverlay)) { new in
+        if new == KeyboardShortcuts.getShortcut(for: .toggleClipboard) {
+            // Show warning: "This conflicts with the menu bar popup shortcut"
         }
     }
-    
-    // Show real-time validation in UI
-    TextField("Pattern", text: $pattern)
-        .onChange(of: pattern) { validatePattern($0) }
-    if let error = patternError {
-        Text(error).foregroundColor(.red).font(.caption)
-    }
-}
 ```
 
-**Phase impact:** Rule editor UI — add real-time validation with clear error messages.
+Default the overlay shortcut to something distinct from `Cmd+Shift+V` (e.g., `Cmd+Shift+Space` or `Option+Space`).
+
+**Phase impact:** Overlay panel — set a non-conflicting default, add conflict detection in the shortcut UI.
 
 ---
 
-### Pitfall 6: Catastrophic Backtracking (ReDoS)
+## Minor Pitfalls
 
-**What goes wrong:** Certain regex patterns can take exponential time to match, freezing the app when matching specific clipboard content.
+---
 
-**Why it happens:** Patterns with nested quantifiers like `(a+)+`, `(a*)*`, or `(a|a)+` exhibit catastrophic backtracking on crafted input.
+### Pitfall 13: Overlay Appears on Wrong Space or Screen
 
-**Consequences:**
-- App freeze/hang on certain clipboard content
-- Watchdog timeout kills app
-- Appears random to user (depends on clipboard content)
+**What goes wrong:** The overlay appears on a different Mission Control space or screen than the one the user is currently using.
 
-**Warning signs:**
-- Patterns with nested quantifiers: `(.+)+`, `(.*)*`, `(\s*)*`
-- App hangs "randomly" (actually when specific content is copied)
-- High CPU with certain clipboard content
+**Why it happens:** `NSPanel.makeKeyAndOrderFront` places the window on the screen where the panel was last positioned. If the app's main window was on Space 1 and the user is on Space 3, the overlay may appear on Space 1.
 
 **Prevention:**
 ```swift
-// Add timeout to regex matching
-func safeMatch(pattern: Regex<AnyRegexOutput>, in text: String, timeout: TimeInterval = 0.1) -> Bool {
-    var result = false
-    let semaphore = DispatchSemaphore(value: 0)
-    
-    DispatchQueue.global(qos: .userInitiated).async {
-        result = text.contains(pattern)
-        semaphore.signal()
-    }
-    
-    let timeoutResult = semaphore.wait(timeout: .now() + timeout)
-    return timeoutResult == .success && result
+// Position relative to the current mouse screen on each show:
+if let screen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) {
+    let x = screen.visibleFrame.midX - panelWidth / 2
+    let y = screen.visibleFrame.midY + 100  // Upper-center, Spotlight-style
+    panel.setFrameOrigin(NSPoint(x: x, y: y))
 }
-
-// Or use possessive quantifiers (Swift Regex supports these):
-// Instead of (.+)+  use (.++)+ or atomic groups
+panel.makeKeyAndOrderFront(nil)
 ```
 
-**Phase impact:** Pattern matching — implement timeout or use async matching for user-defined patterns.
+**Phase impact:** Overlay panel — position logic should center on the active screen, tested with a second monitor.
 
 ---
 
-### Pitfall 7: Ignore Patterns Blocking Legitimate Content
+### Pitfall 14: `NSPasteboard.changeCount` Races With Inline Edit Commit
 
-**What goes wrong:** Overly broad ignore patterns skip content users wanted to keep.
+**What goes wrong:** The 500ms poll fires between when the edit is committed and when `suppressNextChange = true` is set, causing the original (pre-edit) content to be re-added to history.
 
-**Why it happens:** Users create patterns like `.*password.*` that match unintended content like "password reset complete" or documentation about passwords.
-
-**Consequences:**
-- User confusion about "missing" clipboard entries
-- Difficult to diagnose (content silently dropped)
-- Users don't realize their ignore pattern is too broad
-
-**Warning signs:**
-- User reports "clipboard history is missing items"
-- Patterns with `.*` on both sides
-- No feedback when content is ignored
+**Why it happens:** Async timing: clipboard monitor runs on a background timer, edit commit runs on the main thread with no synchronization.
 
 **Prevention:**
+Set `suppressNextChange = true` *before* writing to the pasteboard, not after:
 ```swift
-// Show ignored items in a separate section (collapsed by default)
-// with reason for ignoring
-struct ClipboardPopup: View {
-    @State private var showIgnored = false
-    
-    // In history list:
-    if showIgnored {
-        Section("Ignored") {
-            ForEach(ignoredItems) { item in
-                HStack {
-                    Text(item.preview)
-                    Text("Matched: \(item.matchedPattern)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-        }
-    }
-}
+// Correct order:
+clipboardMonitor.suppressNextChange = true  // First
+NSPasteboard.general.setString(editedText, forType: .string)  // Second
 ```
 
-**Phase impact:** Ignore patterns — provide visibility into what's being ignored.
+Or avoid pasteboard writes entirely — update only the SwiftData model and copy to pasteboard only on the user's explicit paste action.
+
+**Phase impact:** Inline editor — test edit-commit timing with the clipboard monitor running.
 
 ---
 
-## Settings Migration Pitfalls
+### Pitfall 15: `glassEffect` / Material Blur Turns Flat When App Is Backgrounded
 
-### Pitfall 8: SwiftData Schema Changes Causing App Crashes
+**What goes wrong:** The overlay uses a glass/vibrancy material (`.ultraThinMaterial`, `NSVisualEffectView`). When the owning app is not the frontmost app (which it isn't, by design, with `.nonactivatingPanel`), the material renders as a flat color without the blur.
 
-**What goes wrong:** App crashes on launch after update when SwiftData model schema changes.
-
-**Why it happens:** SwiftData can't automatically migrate when model properties are added/removed/changed without explicit migration plan.
+**Why it happens:** macOS only renders vibrancy blur for windows belonging to the active application.
 
 **Consequences:**
-- App refuses to open after update
-- Complete data loss if user deletes/reinstalls
-- 1-star reviews, support tickets
-
-**Warning signs:**
-- Adding new properties to `@Model` classes
-- Changing property types
-- Making required properties optional (or vice versa)
+- The overlay looks "flat" and broken — the intended glass aesthetic disappears every time it's shown (because the app is never active with `.nonactivatingPanel`)
 
 **Prevention:**
+- Accept this limitation and design the theme to look acceptable without blur (use a semi-transparent solid background as fallback)
+- Or use `NSVisualEffectView.state = .active` to force the active appearance:
+
 ```swift
-// For v1.1, implement graceful recovery:
-func makeModelContainer() -> ModelContainer {
-    let schema = Schema([ClipboardItem.self, TransformRule.self, Hook.self])
-    let configuration = ModelConfiguration(schema: schema)
-    
-    do {
-        return try ModelContainer(for: schema, configurations: [configuration])
-    } catch {
-        // Log the error
-        print("Migration failed: \(error). Resetting database.")
-        
-        // Delete corrupted database
-        let dbURL = configuration.url
-        if let url = dbURL {
-            try? FileManager.default.removeItem(at: url)
-        }
-        
-        // Create fresh container
-        do {
-            return try ModelContainer(for: schema, configurations: [configuration])
-        } catch {
-            // Last resort: in-memory container
-            let memoryConfig = ModelConfiguration(isStoredInMemoryOnly: true)
-            return try! ModelContainer(for: schema, configurations: [memoryConfig])
-        }
-    }
-}
+let visualEffect = NSVisualEffectView()
+visualEffect.material = .hudWindow
+visualEffect.blendingMode = .behindWindow
+visualEffect.state = .active  // Force active appearance even when app is inactive
 ```
 
-**For future versions with valuable data:**
-```swift
-// Implement proper VersionedSchema
-enum ClipboardSchemaV1: VersionedSchema {
-    static var versionIdentifier = Schema.Version(1, 0, 0)
-    static var models: [any PersistentModel.Type] { [ClipboardItemV1.self] }
-}
-
-enum ClipboardSchemaV2: VersionedSchema {
-    static var versionIdentifier = Schema.Version(1, 1, 0)
-    static var models: [any PersistentModel.Type] { [ClipboardItem.self] }
-}
-
-struct ClipboardMigrationPlan: SchemaMigrationPlan {
-    static var schemas: [any VersionedSchema.Type] {
-        [ClipboardSchemaV1.self, ClipboardSchemaV2.self]
-    }
-    static var stages: [MigrationStage] { /* define migrations */ }
-}
-```
-
-**Source:** [GitHub PR analysis](https://github.com/Geoffe-Ga/wrist-arcana/pull/47) — real-world SwiftData migration crash fix.
-
-**Phase impact:** All phases adding new model properties — implement migration strategy first.
+**Phase impact:** Theming — test overlay appearance when app is in `.accessory` policy mode, not just in previews.
 
 ---
 
-### Pitfall 9: Hardcoded Values Becoming Configurable
+## Phase-Specific Warnings
 
-**What goes wrong:** Making previously hardcoded values (like `maxItems = 100`) configurable requires careful migration to avoid unexpected behavior changes.
-
-**Current hardcoded values in clipass:**
-```swift
-// ClipboardMonitor.swift line 14
-let maxItems: Int = 100
-
-// ClipboardMonitor.swift line 41
-timer?.schedule(deadline: .now(), repeating: .milliseconds(500))
-
-// ClipboardMonitor.swift lines 16-20
-private let ignoredTypes = [
-    "org.nspasteboard.TransientType",
-    "org.nspasteboard.ConcealedType",
-    "org.nspasteboard.AutoGeneratedType"
-]
-```
-
-**Consequences:**
-- Existing users suddenly see different behavior after update
-- If user sets maxItems lower than current count, pruning happens immediately
-- If user sets different polling interval, performance changes
-
-**Warning signs:**
-- Converting `let` constants to UserDefaults/AppStorage backed properties
-- No migration path for existing default behavior
-
-**Prevention:**
-```swift
-// Use sentinel values to detect "never set by user"
-@AppStorage("maxItems") private var maxItemsSetting: Int = -1
-
-var effectiveMaxItems: Int {
-    maxItemsSetting == -1 ? 100 : maxItemsSetting  // Preserve original default
-}
-
-// Or use explicit "useDefaultMaxItems" flag
-@AppStorage("useDefaultMaxItems") private var useDefault = true
-@AppStorage("maxItems") private var customMaxItems: Int = 100
-
-var maxItems: Int {
-    useDefault ? 100 : customMaxItems
-}
-```
-
-**Phase impact:** Settings UI — preserve existing behavior for users who don't touch settings.
+| Phase Topic | Likely Pitfall | Severity | Mitigation |
+|-------------|---------------|----------|------------|
+| Overlay panel — basic window | #1 Focus steal | CRITICAL | `.nonactivatingPanel` + `.accessory` policy |
+| Overlay panel — basic window | #3 Multiple instances | HIGH | Singleton controller |
+| Overlay panel — basic window | #4 No keyboard input | CRITICAL | `canBecomeKey = true` + `makeKeyAndOrderFront` |
+| Overlay panel — basic window | #11 Wrong size | MEDIUM | Set frame after content view |
+| Overlay panel — basic window | #13 Wrong space/screen | LOW | Position on active screen |
+| Theming | #2 Env lost at boundary | CRITICAL | Re-inject on `NSHostingView` creation |
+| Theming | #7 Hardcoded colors | HIGH | Dynamic color providers from day 1 |
+| Theming | #8 EnvironmentObject in styles | HIGH | Use `EnvironmentValues` extension |
+| Theming | #15 Blur flat when inactive | MEDIUM | Force `.state = .active` on NSVisualEffectView |
+| Inline editor | #5 Edit pollutes history | CRITICAL | Suppress monitor or skip pasteboard write |
+| Inline editor | #9 Focus/selection conflict | HIGH | Double-tap for edit, single-tap for select |
+| Inline editor | #10 Shared undo stack | MEDIUM | Commit/discard pattern (no undo) |
+| Inline editor | #14 Race with poll | MEDIUM | Suppress flag before pasteboard write |
+| Search | #6 SwiftData per-keystroke | MEDIUM | Debounce search input 150ms |
+| Second hotkey | #12 Hotkey conflict | HIGH | Non-conflicting default + conflict detection |
 
 ---
-
-### Pitfall 10: AppStorage Type Mismatches
-
-**What goes wrong:** Changing the type of an `@AppStorage` property between versions causes crashes or data loss.
-
-**Why it happens:** UserDefaults stores typed data. Reading an Int as a String (or vice versa) fails.
-
-**Consequences:**
-- Crash on app launch
-- Setting reverts to default unexpectedly
-- Difficult to debug (happens only for users with existing preferences)
-
-**Warning signs:**
-- Changing `@AppStorage("key") var foo: Int` to `String`
-- Renaming an AppStorage key without migration
-- Changing optional to non-optional
-
-**Prevention:**
-```swift
-// WRONG - Type change breaks existing users
-// v1.0: @AppStorage("truncationLength") var length: Int = 100
-// v1.1: @AppStorage("truncationLength") var length: String = "100"
-
-// CORRECT - New key for new type, migrate old value
-@AppStorage("truncationLength") private var legacyLength: Int?
-@AppStorage("truncationLengthV2") private var length: String = "100"
-
-init() {
-    if let legacy = legacyLength {
-        length = String(legacy)
-        UserDefaults.standard.removeObject(forKey: "truncationLength")
-    }
-}
-```
-
-**Phase impact:** All AppStorage additions — document key names, never change types.
-
----
-
-## Integration Pitfalls
-
-### Pitfall 11: KeyboardShortcuts Conflicts with Existing Hotkey
-
-**What goes wrong:** clipass already has a fixed hotkey (Cmd+Shift+V). Adding customizable hotkeys without migration path confuses users or creates conflicts.
-
-**Current implementation:**
-```swift
-// clipassApp.swift lines 5-7
-extension KeyboardShortcuts.Name {
-    static let toggleClipboard = Self("toggleClipboard", default: .init(.v, modifiers: [.command, .shift]))
-}
-```
-
-**Consequences:**
-- User customizes hotkey, forgets what it was, can't access app
-- Hotkey conflicts with other apps not detected
-- Default hotkey might already be in use by user's system
-
-**Warning signs:**
-- No "reset to default" option
-- No conflict detection with system shortcuts
-- No indication of current hotkey in menu bar
-
-**Prevention:**
-```swift
-// Show current hotkey in menu bar tooltip or menu
-MenuBarExtra("clipass", systemImage: "doc.on.clipboard") {
-    // Show current hotkey prominently
-    if let shortcut = KeyboardShortcuts.getShortcut(for: .toggleClipboard) {
-        Text("Press \(shortcut.description) to show")
-            .font(.caption)
-            .foregroundColor(.secondary)
-    }
-    
-    // Easy access to settings to change hotkey
-    Button("Change Hotkey...") {
-        openSettings()
-    }
-}
-
-// Add reset to default button in settings
-Button("Reset to Default (⌘⇧V)") {
-    KeyboardShortcuts.reset(.toggleClipboard)
-}
-```
-
-**Source:** [KeyboardShortcuts issues](https://github.com/sindresorhus/KeyboardShortcuts/issues/219) — conflicts not always detected.
-
-**Phase impact:** Hotkey customization — add reset option, show current hotkey in UI.
-
----
-
-### Pitfall 12: Settings Window Stealing Focus from Menu Bar Popup
-
-**What goes wrong:** Opening Settings window from menu bar popup causes focus issues; popup might close, window might not appear, or focus is confused.
-
-**Current implementation:**
-```swift
-// Uses Window scene (correct for Settings)
-Window("Settings", id: "settings") {
-    SettingsView()
-}
-```
-
-**Consequences:**
-- Settings window opens behind other windows
-- Menu bar popup closes but Settings doesn't appear (focus race)
-- User confusion about where Settings went
-
-**Warning signs:**
-- Settings button in popup
-- No explicit window activation
-- Window opens but isn't key/main
-
-**Prevention:**
-```swift
-// Explicitly activate and bring to front
-Button("Settings...") {
-    // Close popup first to avoid race
-    dismissPopup()
-    
-    // Small delay for UI to settle
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-        NSApp.activate(ignoringOtherApps: true)
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-        // Or use environment openWindow
-    }
-}
-
-// Or use openWindow environment action (SwiftUI 4+)
-@Environment(\.openWindow) private var openWindow
-
-Button("Settings...") {
-    openWindow(id: "settings")
-}
-```
-
-**Phase impact:** Settings UI integration — test focus behavior carefully.
-
----
-
-### Pitfall 13: Mutating Shared State from Settings
-
-**What goes wrong:** Settings changes (like maxItems) don't take effect immediately because ClipboardMonitor has cached values.
-
-**Current architecture:**
-```swift
-// AppServices is singleton, values read at init
-@MainActor
-final class AppServices {
-    static let shared = AppServices()
-    let clipboardMonitor = ClipboardMonitor()  // maxItems = 100 hardcoded
-}
-```
-
-**Consequences:**
-- User changes setting, sees no effect until restart
-- Confusion about whether change was saved
-- Inconsistent behavior
-
-**Warning signs:**
-- Constants in services read at init
-- No observation of UserDefaults/AppStorage changes
-- Settings require restart
-
-**Prevention:**
-```swift
-// Option 1: Read settings on each use (simple, slight performance cost)
-class ClipboardMonitor {
-    @AppStorage("maxItems") private var maxItems = 100
-    
-    private func pruneOldItems(context: ModelContext) {
-        // maxItems is read fresh from AppStorage each time
-        let maxItems = self.maxItems  // Current value
-        // ... pruning logic
-    }
-}
-
-// Option 2: Observe changes (more complex, better for frequent reads)
-class ClipboardMonitor {
-    private var maxItems: Int = 100
-    private var cancellables = Set<AnyCancellable>()
-    
-    init() {
-        NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
-            .sink { [weak self] _ in
-                self?.maxItems = UserDefaults.standard.integer(forKey: "maxItems")
-            }
-            .store(in: &cancellables)
-    }
-}
-```
-
-**Phase impact:** All settings — ensure changes take effect immediately.
-
----
-
-### Pitfall 14: Breaking Existing TransformRule/Hook Data
-
-**What goes wrong:** Adding new properties to TransformRule or Hook models breaks existing stored rules.
-
-**Current models:**
-```swift
-// TransformRule.swift
-@Model class TransformRule {
-    var id: UUID
-    var name: String
-    var pattern: String
-    var replacement: String
-    var sourceAppFilter: String?
-    var isEnabled: Bool
-    var order: Int
-    var createdAt: Date
-}
-```
-
-**Consequences:**
-- If adding non-optional property: crash on fetch
-- If changing property type: crash or data corruption
-- Users lose their carefully configured rules
-
-**Warning signs:**
-- Adding required (non-optional) properties without defaults
-- Changing property types
-- Removing properties
-
-**Prevention:**
-```swift
-// Always add new properties as optional with defaults
-@Model class TransformRule {
-    // Existing properties...
-    
-    // NEW for v1.1 - optional with sensible default
-    var caseSensitive: Bool? // nil = false (backward compatible)
-    var targetAppFilter: String?  // nil = all apps
-    
-    var isCaseSensitive: Bool {
-        caseSensitive ?? false
-    }
-}
-
-// Or use @Attribute(originalName:) for renames
-@Attribute(originalName: "pattern") var regexPattern: String
-```
-
-**Phase impact:** Model changes — always add optionals, never remove, never change types.
-
----
-
-## Summary: Phase-Specific Warnings
-
-| Phase | Likely Pitfall | Severity | Mitigation |
-|-------|---------------|----------|------------|
-| Launch at Login | #1 Auto-enable rejection | CRITICAL | Use LaunchAtLogin.Toggle only |
-| Launch at Login | #2 Wrong package | HIGH | Use LaunchAtLogin-Modern |
-| Ignore Patterns | #4 Regex per-poll | MEDIUM | Cache compiled patterns |
-| Ignore Patterns | #5 Invalid regex | MEDIUM | Real-time validation UI |
-| Ignore Patterns | #6 ReDoS | LOW | Add matching timeout |
-| Settings Storage | #8 Schema migration | CRITICAL | Implement recovery fallback |
-| Settings Storage | #10 AppStorage types | HIGH | Never change key types |
-| Hotkey Settings | #11 Shortcut conflicts | MEDIUM | Add reset, show current |
-| All Settings | #13 Cached values | MEDIUM | Use AppStorage or observe |
-| Model Changes | #14 Breaking data | CRITICAL | Only add optionals |
 
 ## Sources
 
-- [LaunchAtLogin-Modern](https://github.com/sindresorhus/LaunchAtLogin-Modern) - Official package documentation (HIGH confidence)
-- [LaunchAtLogin-Legacy FAQ](https://github.com/sindresorhus/LaunchAtLogin-Legacy#faq) - Testing issues (HIGH confidence)
-- [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts) - Hotkey package (HIGH confidence)
-- [SwiftData Migration PR](https://github.com/Geoffe-Ga/wrist-arcana/pull/47) - Real-world crash fix (MEDIUM confidence)
-- clipass codebase analysis - Current implementation (HIGH confidence)
+- [Make a floating panel in SwiftUI for macOS — Cindori](https://cindori.com/developer/floating-panel) (HIGH confidence — detailed NSPanel setup guide)
+- [Nailing the Activation Behavior of a Spotlight / Raycast-Like Command Palette — Multi.app](https://multi.app/blog/nailing-the-activation-behavior-of-a-spotlight-raycast-like-command-palette) (HIGH confidence — real production post-mortem)
+- [Fine-Tuning macOS App Activation Behavior — artlasovsky.com](https://artlasovsky.com/fine-tuning-macos-app-activation-behavior) (MEDIUM confidence — community analysis)
+- [SwiftUI/MacOS: Floating Window/Panel — Level Up Coding](https://levelup.gitconnected.com/swiftui-macos-floating-window-panel-4eef94a20647) (MEDIUM confidence)
+- [Resolving NSPanel Size 500x500 Issues — Medium](https://medium.com/@clyapp/resolving-nspanel-size-500x500-issues-in-macos-swift-app-71ba9ca8bc71) (MEDIUM confidence)
+- [Making macOS SwiftUI text views editable on click — polpiella.dev](https://www.polpiella.dev/swiftui-editable-list-text-items) (HIGH confidence — implementation analysis)
+- [UIKit/AppKit and SwiftUI's Environment propagation — Five Stars](https://www.fivestars.blog/articles/swiftui-environment-propagation-3/) (HIGH confidence — official behavior analysis)
+- [Environment Objects and SwiftUI Styles — Five Stars](https://www.fivestars.blog/articles/environment-objects-and-swiftui-styles/) (HIGH confidence)
+- [Showing Settings from macOS Menu Bar Items: A 5-Hour Journey — steipete.me](https://steipete.me/posts/2025/showing-settings-from-macos-menu-bar-items) (HIGH confidence — 2025, real-world pain points)
+- [glassEffect in floating window/panel — Hacking with Swift forums](https://www.hackingwithswift.com/forums/swiftui/glasseffect-in-floating-window-panel/30067) (MEDIUM confidence)
+- [SwiftUI TextField Advanced — Events, Focus, Keyboard — fatbobman.com](https://fatbobman.com/en/posts/textfield-event-focus-keyboard/) (HIGH confidence — comprehensive reference)
+- [Performance Struggles With SwiftData and List — Hacking with Swift](https://www.hackingwithswift.com/forums/swiftui/performance-struggles-with-swiftdata-and-list/27724) (MEDIUM confidence)
+- [GitHub — FontSwitch: NSPanel + key window management](https://github.com/JPToroDev/FontSwitch) (MEDIUM confidence — reference implementation)

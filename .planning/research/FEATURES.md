@@ -1,275 +1,194 @@
-# Features Research: v1.1 More Control
+# Feature Landscape
 
-**Domain:** macOS clipboard manager settings/configuration
-**Researched:** 2026-02-06
-**Confidence:** HIGH (based on Maccy, Clipy, LaunchAtLogin, KeyboardShortcuts research)
-
-## Executive Summary
-
-Research into macOS clipboard managers (Maccy 18.5k stars, Clipy 8.4k stars) and settings utilities (LaunchAtLogin, KeyboardShortcuts) reveals clear patterns for settings/configuration features. The ecosystem has well-established expectations around filtering, display, and app behavior settings.
-
-Key insights:
-- **Filtering**: Ignored apps by pasteboard type (not bundle ID) is the standard; content-based filtering via regex is differentiating
-- **Display**: Preview truncation is table stakes; redaction of sensitive content varies widely
-- **App behavior**: Launch at login is trivially implemented with `SMAppService`; hotkey customization via KeyboardShortcuts is already in clipass
+**Domain:** macOS clipboard manager — overlay UI, Raycast-style theming, inline text editor
+**Researched:** 2026-03-13
+**Milestone:** v2.0 Overlay UI & Theming
 
 ---
 
-## Filtering Settings
+## Context: What Already Exists (Do Not Duplicate)
 
-### Table Stakes
-Features users expect. Missing = product feels incomplete.
+v1.1 shipped all of the below. v2.0 adds new surfaces and behaviors on top:
 
-| Feature | Why Expected | Complexity | Dependencies | Notes |
-|---------|--------------|------------|--------------|-------|
-| **Pasteboard type ignore list** | Maccy, Clipy, and all major managers do this | Low | None | Already partially implemented via hardcoded `ignoredTypes` |
-| **Editable ignored types list** | Power users need to add app-specific types | Low | Settings persistence | UI: List with add/remove, text input |
-| **Ignore secure/concealed types** | Standard privacy protection | Low | None | Already implemented - `TransientType`, `ConcealedType` |
-| **Toggle for ignore list** | Users may want to temporarily disable filtering | Low | None | Simple on/off toggle in Settings |
+- Menu bar popup (`ClipboardPopup.swift`) via `MenuBarExtra .window` style
+- Global hotkey Cmd+Shift+V via `KeyboardShortcuts` package
+- `HistoryItemRow.swift` with search, smart context menu, pin/unpin
+- Transform rules, hooks, context actions
+- Settings window with 6 tabs (General, Transforms, Automation, Filtering, Display, Actions)
+- Persistence via SwiftData (`ClipboardItem` model)
 
-### Differentiators
-Features that set product apart. Not expected, but valued.
+The v2.0 overlay is a **second UI surface** — not a replacement. Both coexist with separate hotkeys and separate purposes.
 
-| Feature | Value Proposition | Complexity | Dependencies | Notes |
-|---------|-------------------|------------|--------------|-------|
-| **Content pattern ignore (regex)** | Skip storing sensitive data by content, not just source | Medium | Regex engine | Unique - most managers only filter by source |
-| **Configurable ignored apps by bundle ID** | More intuitive than pasteboard types for users | Medium | App picker UI | Current impl uses pasteboard types, which is technical |
-| **Pattern presets** | Pre-configured patterns for common cases (API keys, passwords) | Low | Content patterns | Starter patterns users can enable/disable |
-| **Per-pattern enable/disable** | Fine-grained control without deleting patterns | Low | Pattern list | Similar to transform rules UI |
+---
 
-### Anti-Features
-Features to deliberately NOT build.
+## Table Stakes
+
+Features users expect from a Raycast-style overlay and theme system. Missing any of these makes the feature feel broken or incomplete.
+
+| Feature | Why Expected | Complexity | Depends On |
+|---------|--------------|------------|------------|
+| Floating center-screen panel | Every launcher (Raycast, Alfred, Spotlight) positions here | Low | NSPanel + NSHostingView |
+| Separate global hotkey to summon | Core activation model, distinct from existing Cmd+Shift+V | Low | KeyboardShortcuts (already in project) |
+| Toggle: same hotkey closes overlay | Users expect hotkey to dismiss if already open | Low | Panel `isVisible` check |
+| ESC dismisses overlay | Universal dismissal convention across all macOS launchers | Low | `.onExitCommand` in SwiftUI |
+| Click outside dismisses overlay | Standard floating window behavior | Low | `NSWindowDelegate.windowDidResignKey` |
+| Search field auto-focused on open | Without auto-focus, user must click to type — feels broken | Low | `@FocusState` + `.onAppear` |
+| Keyboard navigation (↑↓ arrows) | Mouse-free use is the point of a launcher overlay | Medium | Reuse selection pattern from `ClipboardPopup.swift` |
+| Return/Enter pastes selected item | Primary action; same as menu bar popup | Low | Reuse existing paste service |
+| Vibrancy / blur background | macOS visual convention for floating overlay panels | Low | `NSVisualEffectView` via `NSHostingView`; or `.ultraThinMaterial` |
+| Smooth appear/dismiss animation | Instant show/hide feels cheap; ~150ms opacity+scale | Low | SwiftUI transition modifiers |
+| `hidesOnDeactivate` on app switch | Standard overlay behavior: hide when user Cmd+Tabs away | Low | `NSPanel.hidesOnDeactivate = true` |
+| Predefined themes (light, dark, at minimum) | Without presets it is not a theme system | Medium | Semantic token enum |
+| Theme persists across launches | Settings change survives restart | Low | `AppStorage` / `UserDefaults` |
+
+## Differentiators
+
+Features that set clipass v2.0 apart from competing clipboard managers (Maccy, Pasta, Pastebot).
+
+| Feature | Value Proposition | Complexity | Depends On |
+|---------|-------------------|------------|------------|
+| Click-to-edit inline text editor (overlay only) | Edit clipboard content before pasting — no free clipboard manager does this | High | Overlay panel; two-state row; temporary text buffer; SwiftData write |
+| Raycast-style accent color token system | Matches user aesthetic; feels like a first-class app | Medium | Semantic color token structs + SwiftUI environment injection |
+| 3–5 curated named themes (Dark, Light, High Contrast, at least one accent) | Predefined quality themes reduce configuration burden | Medium | Token enum with named cases |
+| Theme picker in Settings (live preview) | Immediate visual feedback before committing | Low | Theme system + existing Settings window |
+| Overlay-only feature scope for editor | Keeps menu bar popup fast and simple; overlay is the "power" surface | Low | Architecture decision — no code complexity |
+
+## Anti-Features
+
+Features to explicitly NOT build in v2.0.
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| **Automatic sensitive content detection** | False positives frustrating; privacy concerns about analyzing all content | Let users define their own patterns |
-| **AI-based content classification** | Overkill for v1.1; battery/performance impact | Simple regex patterns |
-| **Cloud-synced ignore lists** | Scope creep; v1 is local-only | Store in UserDefaults or SwiftData |
-| **Real-time pattern testing feedback** | Complex UI; diminishing returns | Test patterns manually or show match count |
-
----
-
-## Display Settings
-
-### Table Stakes
-Features users expect. Missing = product feels incomplete.
-
-| Feature | Why Expected | Complexity | Dependencies | Notes |
-|---------|--------------|------------|--------------|-------|
-| **Configurable preview truncation length** | Maccy, Clipy all have this | Low | None | Currently appears to be hardcoded |
-| **Clean invisible chars in preview** | Common frustration with copy/paste | Low | String sanitization | Tab, newline, zero-width chars shown as symbols or removed |
-| **Preview line limit** | Prevent long multi-line text overwhelming UI | Low | None | Separate from char truncation |
-
-### Differentiators
-Features that set product apart. Not expected, but valued.
-
-| Feature | Value Proposition | Complexity | Dependencies | Notes |
-|---------|-------------------|------------|--------------|-------|
-| **Sensitive content redaction in preview** | Security-conscious users see masked data in menu | Medium | Regex detection | Show `j***@e***` for emails, `•••••••` for passwords |
-| **Configurable redaction patterns** | User-defined patterns for masking | Medium | Pattern system | Reuse ignore pattern infrastructure |
-| **Show/hide source app name** | Some users want cleaner UI | Low | None | Toggle in display settings |
-| **Timestamp display format** | Relative ("2m ago") vs absolute | Low | None | User preference for time display |
-| **Monospace font option** | Better for code snippets | Low | None | Helps developers |
-
-### Anti-Features
-Features to deliberately NOT build.
-
-| Anti-Feature | Why Avoid | What to Do Instead |
-|--------------|-----------|-------------------|
-| **Syntax highlighting in preview** | Performance overhead; complex implementation | Keep preview simple, show raw text |
-| **Rich text preview** | Clipass is text-only; adds complexity | Show plain text preview |
-| **Multiple preview themes** | Feature creep; diminishing value | Single well-designed preview style |
-| **Image thumbnails** | v1 is text-only per design constraints | Text preview only |
-
----
-
-## App Behavior Settings
-
-### Table Stakes
-Features users expect. Missing = product feels incomplete.
-
-| Feature | Why Expected | Complexity | Dependencies | Notes |
-|---------|--------------|------------|--------------|-------|
-| **Launch at Login toggle** | Every menu bar app has this | Very Low | LaunchAtLogin-Modern package | `LaunchAtLogin.Toggle()` SwiftUI component |
-| **Customizable global hotkey** | KeyboardShortcuts already integrated | Very Low | KeyboardShortcuts package | `KeyboardShortcuts.Recorder` in Settings |
-| **History max items setting** | Maccy has this; controls storage/performance | Low | Currently hardcoded at 100 | Slider or text field, reasonable range 50-1000 |
-| **Clear history action** | Users need to purge sensitive history | Low | None | Button in Settings or menu |
-
-### Differentiators
-Features that set product apart. Not expected, but valued.
-
-| Feature | Value Proposition | Complexity | Dependencies | Notes |
-|---------|-------------------|------------|--------------|-------|
-| **History auto-cleanup by age** | Auto-delete items older than X days | Medium | Background task or on-launch check | Reduces storage bloat |
-| **Ignore next copy temporarily** | One-time skip without changing settings | Low | State management | Maccy has this: Option+Shift+click menu icon |
-| **Pause/Resume monitoring** | Temporarily stop all capture | Low | State management | Toggle in menu bar icon |
-| **Clipboard check interval** | Advanced tuning (Maccy default 500ms) | Low | Timer config | Only for power users; may hide in advanced |
-| **Sound on copy** | Audio feedback (optional) | Low | System sound API | Accessibility feature |
-
-### Anti-Features
-Features to deliberately NOT build.
-
-| Anti-Feature | Why Avoid | What to Do Instead |
-|--------------|-----------|-------------------|
-| **Auto-start enabled by default** | Mac App Store guidelines require user action | Default to OFF; prompt user to enable |
-| **Cloud sync of settings** | Scope creep; v1 is local-only | Local settings storage |
-| **Multiple profiles** | Complexity without clear value | Single settings profile |
-| **Scheduled clear times** | Edge case; manual clear sufficient | On-demand clear action |
-| **Export/import settings** | v1.1 scope creep | Consider for future version |
-
----
-
-## Hotkey Customization Settings
-
-### Table Stakes
-
-| Feature | Why Expected | Complexity | Dependencies | Notes |
-|---------|--------------|------------|--------------|-------|
-| **Hotkey recorder UI** | KeyboardShortcuts provides this | Very Low | Already integrated | Use `KeyboardShortcuts.Recorder` |
-| **Conflict detection** | KeyboardShortcuts handles this | Very Low | Already integrated | Shows warning if shortcut used by system |
-| **Clear/reset hotkey** | Users may want to remove hotkey | Very Low | KeyboardShortcuts API | Built into Recorder component |
-
-### Differentiators
-
-| Feature | Value Proposition | Complexity | Dependencies | Notes |
-|---------|-------------------|------------|--------------|-------|
-| **Multiple hotkeys** | Different shortcuts for different actions | Medium | KeyboardShortcuts supports this | e.g., separate hotkey for Settings window |
-| **Double-tap shortcut** | Alternative activation method | High | Custom implementation | Not worth complexity for v1.1 |
+| Rich text / Markdown rendering in inline editor | NSTextView attributed strings + clipass transform model = conflict; massive complexity | Plain text only — existing transforms already handle formatting |
+| Drag-to-reorder inside overlay | Fragile UX in a transient overlay; pin/unpin in v1.1 handles priority | Keyboard-only; use pin to preserve important items |
+| Overlay replaces menu bar popup | Two surfaces solve different UX needs; removal breaks existing users | Keep both; document distinction |
+| Custom theme authoring / Theme Studio UI | High complexity; Raycast's equivalent is Pro-only; not MVP | Named predefined themes only for v2.0; defer custom builder |
+| Theme import/export | Scope creep; no community infrastructure yet | Local themes only |
+| Positioning overlay at mouse cursor | Multi-monitor behavior unpredictable; cursor position changes between shortcut press and panel render | Always center on active display |
+| iCloud/cloud theme sync | Project is local-only by design | `UserDefaults` / `AppStorage` only |
+| Per-item undo history in editor | Adds state complexity without clear demand | SwiftUI `TextEditor` built-in undo is sufficient |
+| Inline editor in menu bar popup | Keeps popup fast; editing belongs in the persistent overlay surface | Editor in overlay only |
 
 ---
 
 ## Feature Dependencies
 
 ```
-Filtering Settings
-├── Ignored Types List (existing) → Editable UI
-├── Content Patterns → Regex Engine
-│   └── Pattern Presets (depends on Content Patterns)
-└── Ignore Apps → App Picker UI
+Overlay Panel (NSPanel + SwiftUI hosting)
+  ├── Separate global hotkey .............. KeyboardShortcuts package (already in project)
+  ├── Toggle show/hide ................... depends on panel existing + isVisible state
+  ├── ESC dismiss ........................ .onExitCommand modifier (SwiftUI)
+  ├── Click-outside dismiss .............. NSWindowDelegate.windowDidResignKey
+  ├── hidesOnDeactivate .................. NSPanel property
+  ├── Search auto-focus .................. @FocusState + .onAppear
+  ├── Keyboard navigation ................ reuse selection pattern from ClipboardPopup.swift
+  ├── Return-to-paste .................... reuse paste service (already exists)
+  └── Vibrancy background ................ NSVisualEffectView or .ultraThinMaterial
 
-Display Settings
-├── Preview Truncation → Settings Storage
-├── Clean Invisible Chars → Text Processing
-└── Sensitive Redaction → Regex Detection (shares with Content Patterns)
+Theme System (semantic color tokens via SwiftUI environment)
+  ├── Token struct ....................... background, surface, accent, textPrimary, textSecondary
+  ├── Theme enum with named cases ........ prerequisite for everything theming
+  ├── Environment injection .............. .environment(\.appTheme, currentTheme)
+  ├── AppStorage persistence ............. @AppStorage("selectedTheme") in AppDelegate or app state
+  ├── Settings theme picker .............. depends on theme enum + existing Settings window
+  ├── Overlay applies theme .............. overlay depends on theme system
+  └── Menu bar popup respects theme ...... parallel track; share same environment value
 
-App Behavior
-├── Launch at Login → LaunchAtLogin-Modern package (new dependency)
-├── Hotkey Customization → KeyboardShortcuts (existing)
-├── History Limits → Settings Storage
-└── Auto-Cleanup → Background Task
+Click-to-edit Inline Editor (overlay only — hard dependency on overlay panel)
+  ├── Overlay panel must exist ........... hard dependency
+  ├── HistoryItemRow edit-mode variant ... new @State .display / .editing on row
+  ├── @FocusState within row ............. manage focus for the TextEditor
+  ├── Temporary text buffer .............. edit without mutating SwiftData on every keystroke
+  ├── Commit path ........................ Return key → update ClipboardItem.content in SwiftData
+  ├── Cancel path ........................ ESC → discard temp buffer, return to display mode
+  └── ESC conflict resolution ............ if row.isEditing: ESC cancels edit (not overlay dismiss)
+                                          if not editing: ESC dismisses overlay
 ```
 
 ---
 
 ## MVP Recommendation
 
-For v1.1 MVP, prioritize:
+Minimum for v2.0 to be shippable:
 
-**Phase 1 (Foundation):**
-1. Settings persistence infrastructure (UserDefaults or @AppStorage)
-2. General tab in Settings view
+**Phase 1 — Overlay panel foundation**
+Everything else depends on this. Build NSPanel hosting infrastructure, hotkey, toggle, ESC, click-outside, search auto-focus, arrow navigation, Return-to-paste, vibrancy.
 
-**Phase 2 (Filtering):**
-3. Editable ignored pasteboard types list
-4. Content ignore patterns (regex) with add/remove UI
+**Phase 2 — Theme system**
+Token structs, Theme enum (Dark / Light / High Contrast / one accent variant), SwiftUI environment injection, AppStorage persistence, theme picker in Settings Display tab with live preview.
 
-**Phase 3 (Display):**
-5. Configurable preview truncation length
-6. Clean invisible characters toggle
-7. Basic sensitive content redaction (email, password patterns)
+**Phase 3 — Inline editor**
+Two-state `HistoryItemRow` (display/edit), `TextEditor` bound to temp buffer, commit on Return, cancel on ESC, ESC conflict resolution.
 
-**Phase 4 (Behavior):**
-8. Launch at Login toggle (LaunchAtLogin-Modern)
-9. History max items slider
-10. Global hotkey customization (KeyboardShortcuts.Recorder)
-11. History auto-cleanup by age
-
-**Defer to post-v1.1:**
-- Advanced redaction pattern customization
-- Clipboard check interval tuning
-- Pause/resume monitoring
-- Multiple hotkeys
-- Sound on copy
+Defer to a later milestone:
+- Custom theme creation UI
+- Theme import/export
+- Per-theme typography or density controls
+- Overlay search query persistence between invocations
+- Cmd+Return "copy without closing" action
 
 ---
 
-## Common Patterns (Implementation Guidance)
+## Expected UX Behaviors (Reference)
 
-### Pasteboard Type Ignore Patterns (from Maccy)
+### Overlay panel lifecycle
+| Trigger | Behavior |
+|---------|----------|
+| Hotkey when closed | Show overlay, center on active display, focus search field |
+| Hotkey when open | Hide overlay (toggle) |
+| ESC when not editing | Hide overlay |
+| Click outside panel | Hide overlay |
+| Cmd+Tab / app loses focus | Hide overlay (`hidesOnDeactivate`) |
+| Return on selected item | Paste item, hide overlay |
 
-Standard types that should always be ignored:
-```swift
-// Core privacy types - always ignore
-"org.nspasteboard.TransientType"      // Temporary/internal
-"org.nspasteboard.ConcealedType"      // Secret content
-"org.nspasteboard.AutoGeneratedType"  // Auto-generated
+### Keyboard navigation
+| Key | Action |
+|-----|--------|
+| Any printable character | Filters history (search is always active) |
+| ↑ / ↓ | Move selection through filtered list |
+| Return | Paste selected item and close overlay |
+| ESC (no edit active) | Dismiss overlay |
 
-// Common app-specific confidential types
-"com.agilebits.onepassword"           // 1Password
-"com.typeit4me.clipping"              // TypeIt4Me
-"de.petermaurer.TransientPasteboardType"  // LaunchBar
-"Pasteboard generator type"           // Various
-"net.antelle.keeweb"                  // KeeWeb
-"com.apple.is-remote-clipboard"       // Universal Clipboard (optional)
-```
+### Inline editor lifecycle
+| Trigger | Behavior |
+|---------|----------|
+| Double-click or Edit button on row | Enter edit mode; row expands to multiline TextEditor |
+| Return / Save button | Commit changes to SwiftData, exit edit mode |
+| ESC while editing | Discard changes, exit edit mode (does NOT dismiss overlay) |
+| ESC while not editing | Dismiss overlay as normal |
 
-### Common Redaction Patterns
+### Theme application
+| Event | Behavior |
+|-------|----------|
+| Theme changed in Settings | Applies live without restart |
+| System dark/light toggle | Default themes follow system; explicit user-chosen theme stays fixed |
+| Overlay opened | Renders with currently active theme |
 
-```swift
-// Email: show first char + *** + @ + first char of domain + ***
-// "john@example.com" → "j***@e***"
-let emailPattern = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/
+---
 
-// Password fields (commonly labeled)
-let passwordLabelPatterns = [
-    /password[:\s]*.+/i,
-    /pwd[:\s]*.+/i,
-    /secret[:\s]*.+/i
-]
+## Confidence Assessment
 
-// API keys (common formats)
-let apiKeyPatterns = [
-    /sk-[a-zA-Z0-9]{32,}/,           // OpenAI-style
-    /ghp_[a-zA-Z0-9]{36}/,           // GitHub PAT
-    /[A-Za-z0-9_]{32,}==/,           // Base64 tokens
-]
-
-// Credit cards (basic, not comprehensive)
-let ccPattern = /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/
-```
-
-### Launch at Login (from LaunchAtLogin-Modern)
-
-```swift
-import LaunchAtLogin
-
-// In Settings view:
-LaunchAtLogin.Toggle()
-// or custom:
-Toggle("Launch at Login", isOn: $launchAtLogin.isEnabled)
-
-// Programmatic:
-LaunchAtLogin.isEnabled = true
-```
-
-### Hotkey Customization (KeyboardShortcuts - already integrated)
-
-```swift
-import KeyboardShortcuts
-
-// In Settings view:
-KeyboardShortcuts.Recorder("Global Hotkey:", name: .toggleClipboard)
-```
+| Area | Confidence | Basis |
+|------|------------|-------|
+| Overlay panel patterns (NSPanel) | HIGH | Official Apple HIG Panels docs + multiple 2025/2026 SwiftUI guides |
+| Keyboard UX conventions | HIGH | Raycast manual + macOS launcher ecosystem — consistent across sources |
+| Theme system (SwiftUI env + tokens) | HIGH | SwiftUI official docs + multiple 2025 production-scale guides |
+| Click-to-edit pattern | MEDIUM | polpiella.dev guide documents the exact pattern; no Apple-official "inline edit" primitive |
+| Vibrancy / blur implementation | HIGH | NSVisualEffectView is official Apple API; `.ultraThinMaterial` in SwiftUI |
+| Custom theme authoring scope | LOW | Raycast's is Pro-gated; no reference open-source implementation found |
 
 ---
 
 ## Sources
 
-| Source | Type | Confidence | Notes |
-|--------|------|------------|-------|
-| [Maccy](https://github.com/p0deje/Maccy) | GitHub (18.5k stars) | HIGH | Most popular open-source macOS clipboard manager |
-| [Clipy](https://github.com/Clipy/Clipy) | GitHub (8.4k stars) | HIGH | Popular clipboard extension |
-| [LaunchAtLogin-Modern](https://github.com/sindresorhus/LaunchAtLogin-Modern) | GitHub (549 stars) | HIGH | Standard for launch-at-login in macOS 13+ |
-| [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts) | GitHub (2.5k stars) | HIGH | Already used in clipass |
-| [Maccy README](https://github.com/p0deje/Maccy/blob/master/README.md) | Official docs | HIGH | Documents ignore types, clipboard interval |
-| Training data | Claude knowledge | MEDIUM | General macOS development patterns |
+- [Apple HIG: Panels](https://developer.apple.com/design/human-interface-guidelines/panels)
+- [Cindori: Make a floating panel in SwiftUI for macOS](https://cindori.com/developer/floating-panel)
+- [SwiftUI/macOS: Floating Window/Panel — Level Up Coding](https://levelup.gitconnected.com/swiftui-macos-floating-window-panel-4eef94a20647)
+- [polpiella.dev: Making macOS SwiftUI text views editable on click](https://www.polpiella.dev/swiftui-editable-list-text-items)
+- [NSVisualEffectView — Apple Developer Documentation](https://developer.apple.com/documentation/appkit/nsvisualeffectview)
+- [Raycast manual: Keyboard Shortcuts](https://manual.raycast.com/keyboard-shortcuts)
+- [Raycast: Custom Themes](https://manual.raycast.com/custom-themes)
+- [ray.so/themes: Theme Explorer](https://ray.so/themes)
+- [SwiftUI Design Tokens & Theming System (Production-Scale) — DEV Community](https://dev.to/sebastienlato/swiftui-design-tokens-theming-system-production-scale-b16)
+- [SwiftUI Design System: Semantic Colors — magnuskahr](https://www.magnuskahr.dk/posts/2025/06/swiftui-design-system-considerations-semantic-colors/)
+- [Vibrancy, NSAppearance, and Visual Effects in Modern AppKit/SwiftUI — philz.blog](https://philz.blog/vibrancy-nsappearance-and-visual-effects-in-modern-appkit-apps/)

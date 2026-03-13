@@ -1,247 +1,198 @@
-# Research Summary: v1.1 More Control
+# Project Research Summary
 
-**Synthesized:** 2026-02-06
-**Files Reviewed:** STACK.md, FEATURES.md, ARCHITECTURE.md, PITFALLS.md
-**Overall Confidence:** HIGH
-
----
+**Project:** clipass v2.0 — Overlay UI & Theming
+**Domain:** macOS clipboard manager — Raycast-style floating overlay, semantic theming, inline text editor
+**Researched:** 2026-03-13
+**Confidence:** HIGH
 
 ## Executive Summary
 
-clipass v1.1 adds user-configurable settings to a well-architected SwiftUI/SwiftData menu bar app. The existing codebase already has clean patterns (Services layer, tabbed Settings window, consistent model design) that make integration straightforward. **Only one new dependency is needed** (LaunchAtLogin-Modern), with everything else leveraging existing stack components (KeyboardShortcuts, SwiftData, Swift Regex, @AppStorage).
+clipass v2.0 adds three distinct features on top of a solid v1.1 foundation: a floating overlay panel (Raycast/Spotlight-style), a Raycast-inspired theme system, and an inline text editor scoped to the overlay. All three features are buildable with zero new Swift Package dependencies — the entire implementation uses AppKit (`NSPanel`, `NSVisualEffectView`) bridged to SwiftUI via patterns already in the codebase, the `@Observable` macro (macOS 14+), and the `KeyboardShortcuts` package already in use. No dependency churn, no data model changes, and a clear four-stage build order driven by hard architectural dependencies.
 
-The recommended approach follows the existing architecture: add SwiftData models for list-based settings (ignored apps, patterns), use @AppStorage for scalar settings (limits, toggles), create a RedactionEngine service following the TransformEngine pattern, and extend the Settings TabView with new tabs.
+The critical architectural decision is that the overlay must be an `NSPanel` subclass, not a SwiftUI `Window` scene. SwiftUI `Window` scenes activate the app on show, appear in the Dock, cannot be kept at `.floating` window level, and cannot be centered programmatically — all disqualifying for a non-intrusive launcher overlay. The `NSPanel` with `.nonactivatingPanel` style mask is the same mechanism used by Raycast, Alfred, and Spotlight, and is well-documented across multiple high-confidence sources. The theme system uses `@Observable` + SwiftUI `EnvironmentValues` injection at the `NSHostingView` boundary; the inline editor uses `TextEditor` + `@FocusState` with commit/discard semantics.
 
-Key risks center on **SwiftData schema migration** (adding new models to existing container), **regex performance** (cache compiled patterns), and **LaunchAtLogin App Store guidelines** (never auto-enable). All are well-documented with clear prevention strategies.
+The top risks are all implementation-level, not architectural: (1) the panel stealing focus from the previously active app if `.nonactivatingPanel` is omitted, (2) the SwiftUI environment being lost at the `NSHostingView` boundary if theme objects are not re-injected, and (3) inline edits polluting clipboard history if the clipboard monitor's change detection is not suppressed around edit commits. All three have clear, verified mitigations documented with specific code patterns.
 
----
+## Key Findings
 
-## Stack Additions
+### Recommended Stack
 
-| Component | Purpose | Status |
-|-----------|---------|--------|
-| **LaunchAtLogin-Modern** | "Start on login" toggle | NEW — `from: "1.1.0"` |
-| KeyboardShortcuts.Recorder | Hotkey customization UI | Existing |
-| @AppStorage | Scalar settings (limits, toggles) | Existing |
-| SwiftData models | List settings (ignored apps/patterns) | Existing |
-| Swift Regex | Pattern matching | Existing |
+No new dependencies are required. All v2.0 capabilities are available in the existing stack or via AppKit bridging patterns already in use. The `KeyboardShortcuts` package (already at `from: "2.0.0"`) handles the second overlay shortcut via a new `KeyboardShortcuts.Name` declaration — no upgrade needed. `NSVisualEffectView` (via `NSViewRepresentable`) provides frosted glass backgrounds on macOS 14+. The newer `.glassEffect` modifier is macOS 26 only and must not be used.
 
-**Package.swift change:** Add one line:
-```swift
-.package(url: "https://github.com/sindresorhus/LaunchAtLogin-Modern", from: "1.1.0")
-```
+**Core technologies:**
+- `NSPanel` subclass: floating overlay window — only viable mechanism for non-activating launcher overlays on macOS
+- `NSVisualEffectView` (via `NSViewRepresentable`): frosted glass background — macOS 14+ confirmed, requires `.state = .active` when app uses `.accessory` activation policy
+- `@Observable` + `EnvironmentValues`: theme propagation — macOS 14+ compatible, zero-dependency; must use `@Environment` key-path pattern (not `@EnvironmentObject`) for reliable style propagation
+- `@AppStorage` (UserDefaults): theme persistence — correct tool for a string ID; SwiftData is overkill
+- `TextEditor` + `@FocusState`: inline editor — stable macOS 14+ SwiftUI APIs; commit/discard semantics preferred over shared undo stack
+- `KeyboardShortcuts` (existing): second global hotkey — register a new `Name` alongside existing `.toggleClipboard`
 
----
+### Expected Features
 
-## Feature Table Stakes
+**Must have (table stakes):**
+- Floating center-screen panel with non-activating behavior — users expect this from any launcher overlay
+- Separate global hotkey to summon/toggle the overlay — distinct from the existing Cmd+Shift+V menu bar shortcut
+- ESC dismisses overlay; click outside dismisses overlay — universal macOS launcher conventions
+- Search field auto-focused on open — without auto-focus, the overlay feels broken immediately
+- Keyboard navigation (↑↓) and Return-to-paste — mouse-free use is the point of a launcher overlay
+- Frosted glass / vibrancy background — macOS visual convention for floating utility panels
+- Predefined themes (Dark, Light, at minimum) — required to call it a theme system
+- Theme persists across launches — basic settings contract
 
-Features users expect. Missing = product feels incomplete.
+**Should have (differentiators):**
+- Click-to-edit inline text editor (overlay only) — no free clipboard manager does this; high value, medium complexity
+- 3–5 curated named themes (Dark, Light, High Contrast, Nord or similar accent) — quality presets reduce configuration burden
+- Theme picker in Settings with live preview — immediate visual feedback before committing
+- ESC conflict resolution: ESC cancels edit (not overlay dismiss) when a row is in edit mode
 
-| Feature | Complexity | Dependencies |
-|---------|------------|--------------|
-| Launch at login toggle | Very Low | LaunchAtLogin-Modern |
-| Customizable global hotkey | Very Low | KeyboardShortcuts (existing) |
-| Configurable preview truncation | Low | @AppStorage |
-| History max items setting | Low | @AppStorage |
-| Clean invisible chars in preview | Low | String sanitization |
-| Clear history action | Low | None |
-| Editable ignored pasteboard types | Low | Settings persistence |
+**Defer to later milestone:**
+- Custom theme authoring / Theme Studio UI — Raycast's equivalent is Pro-only; no reference open-source implementation found
+- Theme import/export — requires community infrastructure that does not exist yet
+- Rich text / Markdown rendering in inline editor — conflicts with existing transform model; massive complexity
+- Drag-to-reorder in overlay — fragile in a transient overlay; pin/unpin from v1.1 handles priority
+- Per-theme typography or density controls
+- Overlay search query persistence between invocations
 
----
+### Architecture Approach
 
-## Feature Differentiators
+The overlay is managed by a new `OverlayWindowController` (owned by `AppServices`) that creates one `NSPanel` lazily and caches it — never recreated. The panel hosts `ClipboardOverlayView` via `NSHostingView`, with `ThemeManager` and the shared `ModelContext` injected at that boundary. The theme system is a `ThemeManager` `@Observable` singleton with `Theme` value-type structs for each predefined theme. The inline editor is contained entirely in `OverlayItemRow` with local `@State` — no shared editing state at the parent level. The existing `ClipboardPopup` (menu bar popup) is unchanged; both surfaces share the same SwiftData `ModelContext`, so edits in the overlay automatically reflect in the popup via `@Query`.
 
-Features that set clipass apart from Maccy/Clipy.
+**Major components:**
+1. `OverlayWindowController` — NSPanel lifecycle, show/hide/toggle, screen positioning; lives in `AppServices`
+2. `ThemeManager` (`@Observable`) — holds active `Theme`, persists selection to UserDefaults, single source of truth
+3. `Theme` (value type struct) — all color/style tokens for one theme; predefined as static instances in code
+4. `ClipboardOverlayView` — root SwiftUI view in the panel; search, item list, keyboard navigation
+5. `OverlayItemRow` — display mode + inline edit mode; manages its own `isEditing` / `editText` state
+6. `AppearanceSettingsView` — theme picker tab in Settings (7th tab added to existing `SettingsView`)
+7. `VisualEffectBackground` (`NSViewRepresentable`) — frosted glass background wrapper
 
-| Feature | Value Proposition | Complexity |
-|---------|-------------------|------------|
-| **Content pattern ignore (regex)** | Skip storing by content, not just source | Medium |
-| **Sensitive content redaction** | Show `j***@e***` for emails in preview | Medium |
-| **History auto-cleanup by age** | Auto-delete items older than X days | Medium |
-| **Ignored apps by bundle ID** | More intuitive than pasteboard types | Medium |
-| **Pattern presets** | Pre-configured patterns for API keys, passwords | Low |
+**New files: 7. Modified files: 3 (`clipassApp.swift`, `SettingsView.swift`, `GeneralSettingsView`). Data model changes: none.**
 
-**Defer to post-v1.1:**
-- Multiple hotkeys for different actions
-- Clipboard check interval tuning
-- Pause/resume monitoring
-- Sound on copy
+### Critical Pitfalls
 
----
+1. **NSPanel steals focus from the active app** — must use `.nonactivatingPanel` style mask AND set `NSApp.activationPolicy` to `.accessory`. Missing either causes the overlay to disrupt the frontmost app on every summon. Test: open overlay while Terminal is focused; Terminal should stay active (blue title bar).
 
-## Architecture Impact
+2. **SwiftUI environment lost at the NSHostingView boundary** — `ThemeManager` and `ModelContext` must be explicitly re-injected via `.environment(themeManager)` and `.modelContext(...)` at the `NSHostingView` call site. Without this, overlay views crash at runtime with "No observable object of type ThemeManager found" — works in previews, crashes in production.
 
-### New Models (4 files)
+3. **Inline edits pollute clipboard history** — the 500ms clipboard monitor detects pasteboard writes from edit commits as new clipboard entries, duplicating history. Preferred fix: skip the pasteboard write on save — update only the SwiftData model and copy to pasteboard only on explicit user paste. Alternative: set `suppressNextChange = true` on `ClipboardMonitor` before any pasteboard write.
 
-| Model | Purpose |
-|-------|---------|
-| `IgnoredApp.swift` | Bundle IDs to skip capturing |
-| `IgnoredPattern.swift` | Regex patterns for content to skip |
-| `DisplaySettings.swift` | Preview config (singleton) |
-| `AppSettings.swift` | Behavior config (singleton) |
+4. **TextField in overlay receives no keyboard input** — `.nonactivatingPanel` does not automatically become the key window. Must override `canBecomeKey` to return `true` on the `NSPanel` subclass AND call `makeKeyAndOrderFront` (not `orderFrontRegardless`). Critical: `canBecomeMain` must return `false` — the combination of both returning `true` crashes.
 
-### New Service (1 file)
+5. **Multiple overlay instances from rapid hotkey presses** — the hotkey handler must use a singleton controller with lazy panel creation and an `isVisible` check. Never allocate a new `NSPanel` on each keypress.
 
-| Service | Purpose |
-|---------|---------|
-| `RedactionEngine.swift` | Clean invisible chars, apply sensitive pattern redaction |
+## Implications for Roadmap
 
-### Modified Components
+The build order is dictated by hard architectural dependencies: the NSPanel foundation must exist before theming can be visually tested; theming must be structurally in place before overlay views are styled; item rows need a working overlay before the inline editor can be added. This is not a preference — it is dependency order.
 
-| File | Changes |
-|------|---------|
-| `clipassApp.swift` | Register new models in ModelContainer |
-| `ClipboardMonitor.swift` | Query ignored apps/patterns, use settings for limits |
-| `HistoryItemRow.swift` | Use RedactionEngine, read previewLength from settings |
-| `SettingsView.swift` | Add General, Ignored Apps, Ignored Patterns, Display tabs |
+### Phase 1: NSPanel Foundation
 
-### Data Flow Change
+**Rationale:** Everything in v2.0 depends on the overlay panel existing. This is also where the highest-severity pitfalls live (focus steal, no keyboard input, multiple instances). All subsequent phases are blocked until this is verified.
 
-```
-Before (v1.0):
-  Clipboard → hardcoded filters → transform → save → prune(100) → hooks
+**Delivers:** Overlay panel that appears on hotkey, centers on the active screen, takes keyboard focus without stealing it from the frontmost app, dismisses on ESC/click-outside/hotkey toggle. Stub `ClipboardOverlayView` (plain list, unstyled).
 
-After (v1.1):
-  Clipboard → hardcoded filters → IgnoredApp check → IgnoredPattern check
-           → transform → save → prune(settings.maxItems) → hooks
-  
-Display:
-  item.content → RedactionEngine.cleanForDisplay() → truncate(settings.previewLength)
-```
+**Addresses:** Floating panel, global hotkey, toggle, ESC dismiss, click-outside dismiss, search auto-focus, `hidesOnDeactivate`, smooth animation, keyboard navigation, Return-to-paste, shortcut recorder in Settings.
 
----
+**Avoids:** Pitfall #1 (focus steal), #3 (multiple instances), #4 (no keyboard input), #11 (wrong panel size), #12 (hotkey conflict), #13 (wrong screen/space).
 
-## Critical Pitfalls
+**Research flag:** Standard patterns — no additional research needed.
 
-### 1. LaunchAtLogin Auto-Enable = App Store Rejection
-**Severity:** CRITICAL
+### Phase 2: Theme System
 
-Never auto-enable launch at login. Apple requires explicit user action.
+**Rationale:** Themes must be structurally in place before overlay views are styled. `OverlayItemRow` uses theme tokens for selection and hover colors, so theming must precede item row work. `AppearanceSettingsView` belongs here since it depends entirely on the theme infrastructure.
 
-```swift
-// WRONG
-if isFirstLaunch { LaunchAtLogin.isEnabled = true }
+**Delivers:** `Theme` struct with all color tokens, `ThemeManager` (`@Observable`), 4 predefined themes (Dark, Light, Midnight, Nord), `VisualEffectBackground` vibrancy wrapper, `AppearanceSettingsView` (new tab in Settings), overlay styled with active theme, theme persistence across launches, live theme switching.
 
-// CORRECT
-LaunchAtLogin.Toggle() // User toggles explicitly
-```
+**Uses:** `@Observable` + `EnvironmentValues` injection at `NSHostingView` boundary, `@AppStorage` for theme ID persistence, `NSVisualEffectView` with `.state = .active`.
 
-### 2. SwiftData Schema Migration Crashes
-**Severity:** CRITICAL
+**Avoids:** Pitfall #2 (environment lost at boundary), #7 (hardcoded color literals), #8 (`@EnvironmentObject` unreliable in SwiftUI styles — use `EnvironmentValues` extension instead), #15 (blur renders flat when app is inactive).
 
-Adding new models (IgnoredApp, etc.) to existing ModelContainer can crash on launch if migration fails.
+**Research flag:** Standard patterns — no additional research needed.
 
-**Prevention:** Implement graceful recovery — delete corrupted database and create fresh if migration fails.
+### Phase 3: Overlay Item Rows
 
-### 3. Breaking Existing TransformRule/Hook Data
-**Severity:** CRITICAL
+**Rationale:** Establishes the complete overlay interaction loop (search, select, navigate, paste) before adding edit complexity. Separating this from Phase 1 keeps each stage independently verifiable.
 
-Never add required (non-optional) properties to existing models.
+**Delivers:** Themed `OverlayItemRow` (display mode), `@Query` ClipboardItem list in overlay, search filtering with 150ms debounce, full keyboard navigation (↑↓ arrows, Return to paste), Escape to dismiss.
 
-```swift
-// WRONG
-var newProperty: String  // Crashes existing data
+**Avoids:** Pitfall #6 (SwiftData re-fetch per keystroke — debounce search to avoid per-keystroke query execution).
 
-// CORRECT
-var newProperty: String?  // Optional, backward compatible
-```
+**Research flag:** Standard patterns — reuses selection logic from existing `ClipboardPopup.swift`. No research needed.
 
-### 4. Regex Compilation on Every Poll
-**Severity:** MEDIUM
+### Phase 4: Inline Text Editor
 
-Compiling regex patterns on every 500ms poll wastes CPU. Cache compiled patterns, invalidate on rule edit.
+**Rationale:** Depends on all prior phases. Isolated to `OverlayItemRow` with no impact on other phases — correctly sequenced last. Can be developed and reviewed independently.
 
-### 5. User-Supplied Regex Without Validation
-**Severity:** MEDIUM
+**Delivers:** Two-state `OverlayItemRow` (display/edit), `TextEditor` bound to local `editText` buffer, commit on Return/save button, cancel on ESC (without dismissing overlay), ESC conflict resolution (row in edit mode: ESC cancels edit, not overlay dismiss), SwiftData round-trip verified (edits appear in menu bar popup without restart).
 
-Invalid regex patterns cause silent failures. Add real-time validation with clear error messages in rule editor UI.
+**Avoids:** Pitfall #5 (edit pollutes history — skip pasteboard write on save), #9 (focus/selection conflict — double-tap for edit, single-tap for select), #10 (shared undo stack — use commit/discard, not undo), #14 (race with clipboard monitor poll — set suppress flag before pasteboard write).
 
----
+**Research flag:** Standard patterns — pitfalls are documented with prevention code. No additional research needed.
 
-## Recommended Build Order
+### Phase Ordering Rationale
 
-### Phase 1: Foundation (Models & Settings Shell)
-**Goal:** Data layer for all settings, basic UI structure
+- NSPanel before everything: the overlay window is the prerequisite for all visual and interaction work.
+- Theme before rows: `OverlayItemRow` uses theme tokens; building rows without theming means rework.
+- Rows before editor: the inline editor is a second mode within `OverlayItemRow`; the display mode must be stable before adding edit mode complexity.
+- Inline editor last: zero impact on other three phases; can be deferred without blocking anything else.
 
-- Create 4 new model files
-- Update `clipassApp.swift` to register models
-- Add placeholder tabs to SettingsView
-- Implement SwiftData migration safety
+### Research Flags
 
-**Must avoid:** Pitfall #8 (schema migration), Pitfall #14 (breaking data)
+All four phases use standard, well-documented patterns. No phases require `/gsd:research-phase` during planning.
 
-### Phase 2: Ignored Apps
-**Goal:** User can manage ignored apps, filtering works
-
-- Create `IgnoredAppsView.swift` with list UI
-- Modify ClipboardMonitor to check IgnoredApp
-- Test filtering behavior
-
-**Validates:** Pattern for Phase 3
-
-### Phase 3: Ignored Patterns
-**Goal:** User can manage content patterns to skip
-
-- Create `IgnoredPatternsView.swift` with list UI
-- Modify ClipboardMonitor to check IgnoredPattern
-- Implement regex validation in editor
-
-**Must avoid:** Pitfall #5 (invalid regex), Pitfall #6 (ReDoS)
-
-### Phase 4: Display Settings & Redaction
-**Goal:** Configurable display with sensitive content redaction
-
-- Create `RedactionEngine.swift` service
-- Create `DisplaySettingsView.swift` UI
-- Modify HistoryItemRow to use RedactionEngine
-- Implement invisible char cleaning and sensitive pattern redaction
-
-**Isolated change:** Display-only, no impact on data storage
-
-### Phase 5: History & App Settings
-**Goal:** Configurable limits, start on login, hotkey UI
-
-- Create `GeneralSettingsView.swift`
-- Modify ClipboardMonitor.pruneOldItems() to use settings
-- Add age-based cleanup logic
-- Add KeyboardShortcuts.Recorder
-- Add LaunchAtLogin.Toggle
-
-**Must avoid:** Pitfall #1 (auto-enable), Pitfall #11 (hotkey conflicts), Pitfall #13 (cached values)
-
----
+- **Phase 1:** NSPanel + SwiftUI hosting — battle-tested pattern from Raycast, Alfred, Spotlight; multiple high-confidence guides including a real production post-mortem (Multi.app blog)
+- **Phase 2:** `@Observable` + EnvironmentValues theming — documented Apple pattern, confirmed macOS 14+
+- **Phase 3:** Clipboard list + search — reuses `ClipboardPopup.swift` patterns already in the codebase
+- **Phase 4:** TextEditor + FocusState inline editing — documented in detail; pitfalls catalogued with prevention code
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Single well-documented dependency (LaunchAtLogin-Modern) |
-| Features | HIGH | Based on Maccy (18.5k stars), Clipy (8.4k stars) analysis |
-| Architecture | HIGH | Based on direct codebase analysis, matches existing patterns |
-| Pitfalls | HIGH | Verified from official packages and real GitHub issues |
+| Stack | HIGH | All technologies are verified Apple APIs or existing dependencies; zero new packages; macOS 14+ compatibility confirmed for all patterns used |
+| Features | HIGH | Table stakes consistent across Raycast, Alfred, Spotlight, and Apple HIG Panels; click-to-edit is MEDIUM (no Apple-official inline edit primitive, but exact pattern documented by polpiella.dev) |
+| Architecture | HIGH | Derived from direct codebase analysis (50 files, 8K lines) + verified NSPanel patterns; anti-patterns explicitly documented with rationale |
+| Pitfalls | HIGH | Multiple production post-mortems cited; Five Stars SwiftUI environment propagation analysis; Apple developer forum confirmation |
 
-### Gaps to Address During Implementation
+**Overall confidence:** HIGH
 
-1. **SwiftData migration testing** — Need to verify adding models to existing container works
-2. **Redaction pattern effectiveness** — Test email/password patterns against real-world content
-3. **Ignore visibility** — Consider showing ignored items in collapsed section for debugging
+### Gaps to Address
 
----
+- **`@FocusState` reliability in NSPanel-hosted SwiftUI:** Pitfall #4 notes a fallback via `NSApp.keyWindow?.makeFirstResponder()` for cases where `@FocusState` does not work in non-activating panels. This fallback has not been empirically tested in this codebase. Validate in Phase 1 before building search-dependent phases.
+
+- **Vibrancy when app uses `.accessory` activation policy:** Pitfall #15 documents that `NSVisualEffectView` may render flat without blur when the owning app is not frontmost. The `.state = .active` fix is documented but must be verified in the actual running app, not Xcode previews. Validate in Phase 2.
+
+- **Custom themes (deferred):** No reference open-source implementation found for a custom theme builder on macOS. If pursued in a later milestone, fresh research is required into JSON-based color scheme persistence and a live preview editor pattern.
 
 ## Sources
 
-### Stack
-- LaunchAtLogin-Modern: https://github.com/sindresorhus/LaunchAtLogin-Modern (v1.1.0)
-- KeyboardShortcuts: https://github.com/sindresorhus/KeyboardShortcuts (v2.4.0)
+### Primary (HIGH confidence)
 
-### Features
-- Maccy: https://github.com/p0deje/Maccy (18.5k stars)
-- Clipy: https://github.com/Clipy/Clipy (8.4k stars)
+- NSPanel nonactivating pattern: https://developer.apple.com/documentation/appkit/nswindow/stylemask-swift.struct/nonactivatingpanel
+- Apple HIG: Panels: https://developer.apple.com/design/human-interface-guidelines/panels
+- Floating panel SwiftUI guide (Cindori): https://cindori.com/developer/floating-panel
+- Nailing overlay activation behavior (Multi.app production post-mortem): https://multi.app/blog/nailing-the-activation-behavior-of-a-spotlight-raycast-like-command-palette
+- NSVisualEffectView: https://developer.apple.com/documentation/appkit/nsvisualeffectview
+- SwiftUI editable list text items (polpiella.dev): https://www.polpiella.dev/swiftui-editable-list-text-items
+- SwiftUI environment propagation in AppKit bridges (Five Stars): https://www.fivestars.blog/articles/swiftui-environment-propagation-3/
+- Environment objects in SwiftUI styles (Five Stars): https://www.fivestars.blog/articles/environment-objects-and-swiftui-styles/
+- TextEditor: https://developer.apple.com/documentation/swiftui/texteditor
+- @Entry macro for custom environment values: https://www.avanderlee.com/swiftui/entry-macro-custom-environment-values/
 
-### Architecture
-- Direct clipass codebase analysis
+### Secondary (MEDIUM confidence)
 
-### Pitfalls
-- LaunchAtLogin-Modern README (App Store guidelines)
-- LaunchAtLogin-Legacy FAQ (testing issues)
-- SwiftData migration PR: https://github.com/Geoffe-Ga/wrist-arcana/pull/47
+- Spotlight-like window on macOS with SwiftUI (Markus Bodner): https://www.markusbodner.com/til/2021/02/08/create-a-spotlight/alfred-like-window-on-macos-with-swiftui/
+- Fine-tuning macOS app activation behavior: https://artlasovsky.com/fine-tuning-macos-app-activation-behavior
+- Resolving NSPanel 500x500 size issue: https://medium.com/@clyapp/resolving-nspanel-size-500x500-issues-in-macos-swift-app-71ba9ca8bc71
+- Vibrancy in modern AppKit/SwiftUI (philz.blog): https://philz.blog/vibrancy-nsappearance-and-visual-effects-in-modern-appkit-apps/
+- glassEffect macOS 26 limitation: https://www.klaritydisk.com/blog/building-liquid-glass-ui-macos
+- Raycast custom themes: https://manual.raycast.com/custom-themes
+- SwiftUI design tokens theming system: https://dev.to/sebastienlato/swiftui-design-tokens-theming-system-production-scale-b16
+- SwiftData + List performance: https://www.hackingwithswift.com/forums/swiftui/performance-struggles-with-swiftdata-and-list/27724
+
+### Tertiary (context only)
+
+- Direct codebase analysis: clipass v1.1 (50 Swift files, 8,014 lines) — component boundaries, integration points, existing patterns
+
+---
+*Research completed: 2026-03-13*
+*Ready for roadmap: yes*
