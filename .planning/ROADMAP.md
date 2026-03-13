@@ -112,11 +112,11 @@ Plans:
   3. User can navigate clipboard items with arrow keys and paste the selected item with Return, without touching the mouse
   4. Search field receives focus automatically on open, and the overlay shows/hides with smooth animation and frosted glass background
   5. User can configure the overlay hotkey in Settings
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 12-01: NSPanel foundation (OverlayWindowController, non-activating panel, hotkey, show/hide, ESC, click-outside, toggle)
-- [ ] 12-02: Overlay view (ClipboardOverlayView, search, item list, keyboard nav, Return-to-paste, vibrancy, animation, Settings hotkey recorder)
+- [ ] 12-01-PLAN.md — NSPanel foundation (OverlayPanel, OverlayWindowController, hotkey registration, show/hide/toggle, ESC/click-outside dismiss)
+- [ ] 12-02-PLAN.md — Overlay SwiftUI view (ClipboardOverlayView, search, keyboard nav, Return-to-paste, vibrancy, animation, Settings hotkey recorder)
 
 ### Phase 13: Theme System
 **Goal**: Users can select a theme in Settings that styles the overlay and persists across restarts
