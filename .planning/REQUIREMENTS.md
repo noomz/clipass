@@ -13,11 +13,11 @@ Requirements for v2.0 Overlay UI & Theming. Each maps to roadmap phases.
 - [x] **OVRL-02**: User can dismiss the overlay with ESC key
 - [x] **OVRL-03**: User can dismiss the overlay by clicking outside the panel
 - [x] **OVRL-04**: Same hotkey toggles overlay open/closed
-- [ ] **OVRL-05**: Search field is auto-focused when overlay opens
-- [ ] **OVRL-06**: User can navigate clipboard items with arrow keys and paste with Return
-- [ ] **OVRL-07**: Overlay displays frosted glass vibrancy background
-- [ ] **OVRL-08**: Overlay shows/hides with smooth animation
-- [ ] **OVRL-09**: User can configure the overlay hotkey in Settings
+- [x] **OVRL-05**: Search field is auto-focused when overlay opens
+- [x] **OVRL-06**: User can navigate clipboard items with arrow keys and paste with Return
+- [x] **OVRL-07**: Overlay displays frosted glass vibrancy background
+- [x] **OVRL-08**: Overlay shows/hides with smooth animation
+- [x] **OVRL-09**: User can configure the overlay hotkey in Settings
 
 ### Theming
 
@@ -61,11 +61,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | OVRL-02 | Phase 12 | Complete |
 | OVRL-03 | Phase 12 | Complete |
 | OVRL-04 | Phase 12 | Complete |
-| OVRL-05 | Phase 12 | Pending |
-| OVRL-06 | Phase 12 | Pending |
-| OVRL-07 | Phase 12 | Pending |
-| OVRL-08 | Phase 12 | Pending |
-| OVRL-09 | Phase 12 | Pending |
+| OVRL-05 | Phase 12 | Complete |
+| OVRL-06 | Phase 12 | Complete |
+| OVRL-07 | Phase 12 | Complete |
+| OVRL-08 | Phase 12 | Complete |
+| OVRL-09 | Phase 12 | Complete |
 | THME-01 | Phase 13 | Pending |
 | THME-02 | Phase 13 | Pending |
 | THME-03 | Phase 13 | Pending |

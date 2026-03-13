@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Overlay UI & Theming
 status: planning
-stopped_at: Completed 12-overlay-panel-01-PLAN.md
-last_updated: "2026-03-13T08:51:47.319Z"
+stopped_at: "Checkpoint: Task 3 human-verify in 12-overlay-panel-02-PLAN.md"
+last_updated: "2026-03-13T08:55:29.447Z"
 last_activity: 2026-03-13 — v2.0 roadmap created (phases 12-14)
 progress:
   total_phases: 14
-  completed_phases: 9
+  completed_phases: 10
   total_plans: 18
-  completed_plans: 16
+  completed_plans: 17
   percent: 0
 ---
 
@@ -54,6 +54,7 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 | 9. Settings Nav | 1/1 | ~1 min | ~1 min |
 | 11. Context Actions | 1/1 | ~5 min | ~5 min |
 | Phase 12-overlay-panel P01 | 2 | 2 tasks | 2 files |
+| Phase 12-overlay-panel P02 | 5min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -71,6 +72,8 @@ See PROJECT.md Key Decisions table for full list with outcomes.
 - [Phase 12-overlay-panel]: NSPanel init styleMask set in super.init() — nonactivatingPanel bit does not update kCGSPreventsActivationTagBit correctly post-init
 - [Phase 12-overlay-panel]: toggleOverlay handler omits NSApp.activate() — non-activating overlay requires opposite pattern from toggleClipboard
 - [Phase 12-overlay-panel]: No default hotkey for toggleOverlay — user configures in Settings to avoid global shortcut conflicts
+- [Phase 12-overlay-panel]: NSVisualEffectView state=.active required for .accessory policy blur rendering
+- [Phase 12-overlay-panel]: overlayWillShow notification posted before makeKeyAndOrderFront for clean state reset
 
 ### Pending Todos
 
@@ -83,6 +86,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-13T08:51:47.316Z
-Stopped at: Completed 12-overlay-panel-01-PLAN.md
+Last session: 2026-03-13T08:55:29.444Z
+Stopped at: Checkpoint: Task 3 human-verify in 12-overlay-panel-02-PLAN.md
 Resume file: None
