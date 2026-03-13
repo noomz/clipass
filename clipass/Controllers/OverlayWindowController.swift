@@ -60,6 +60,13 @@ final class OverlayPanel: NSPanel {
         // Notify the controller so it can restore the previous app's focus.
         NotificationCenter.default.post(name: .overlayDidResignKey, object: nil)
     }
+
+    /// Belt-and-suspenders ESC handler at the NSPanel level.
+    /// Fires when OverlaySearchField.keyDown does not consume the ESC key event
+    /// (e.g., if the field loses first-responder before the key is processed).
+    override func cancelOperation(_ sender: Any?) {
+        OverlayWindowController.shared.hide()
+    }
 }
 
 // MARK: - Notification name
@@ -137,12 +144,8 @@ final class OverlayWindowController {
 
         panel.makeKeyAndOrderFront(nil)
 
-        // @FocusState is unreliable when a view first appears inside NSPanel (race with
-        // SwiftUI responder chain settling). Delayed fallback ensures focus lands correctly.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            guard let self else { return }
-            self.panel.makeFirstResponder(self.panel.contentView)
-        }
+        // Focus is handled by OverlaySearchField.makeNSView() via DispatchQueue.main.async
+        // calling window?.makeFirstResponder(field). No additional fallback needed here.
     }
 
     func hide() {

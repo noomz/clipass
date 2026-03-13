@@ -11,7 +11,6 @@ struct ClipboardOverlayView: View {
 
     @State private var searchText = ""
     @State private var selectedID: ClipboardItem.ID?
-    @FocusState private var searchFocused: Bool
     @State private var showContent = false
 
     // MARK: - Filtered Items
@@ -43,7 +42,6 @@ struct ClipboardOverlayView: View {
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .frame(width: 640, height: 400)
         .onAppear {
-            searchFocused = true
             showContent = true
             selectedID = filteredItems.first?.id
         }
@@ -51,7 +49,6 @@ struct ClipboardOverlayView: View {
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("overlayWillShow"))) { _ in
             searchText = ""
             showContent = true
-            searchFocused = true
             selectedID = filteredItems.first?.id
         }
         // Auto-select first item whenever filtered list changes
@@ -66,16 +63,27 @@ struct ClipboardOverlayView: View {
 
     private var contentStack: some View {
         VStack(spacing: 0) {
-            // Search field
-            TextField("Search clipboard...", text: $searchText)
-                .textFieldStyle(.plain)
-                .font(.body)
-                .padding(12)
-                .focused($searchFocused)
+            // Search field — custom NSViewRepresentable handles:
+            //   • Auto-focus (requests first-responder immediately)
+            //   • Arrow key interception (↑/↓ move list selection)
+            //   • ESC interception (dismisses overlay)
+            //   • Return interception (pastes selected item)
+            OverlaySearchField(
+                text: $searchText,
+                placeholder: "Search clipboard...",
+                onArrowUp: moveSelectionUp,
+                onArrowDown: moveSelectionDown,
+                onEscape: { OverlayWindowController.shared.hide() },
+                onReturn: pasteSelected
+            )
+            .frame(height: 44)
+            .padding(.horizontal, 12)
 
             Divider()
 
-            // Clipboard list with selection binding
+            // Clipboard list — selection is driven entirely by selectedID state.
+            // Arrow key events are handled by OverlaySearchField above and update selectedID,
+            // so the list stays in sync without needing to receive keyboard events itself.
             List(filteredItems, selection: $selectedID) { item in
                 OverlayItemRow(item: item)
                     .tag(item.id)
@@ -84,18 +92,6 @@ struct ClipboardOverlayView: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
-            .onKeyPress(.return) {
-                guard let selectedID,
-                      let item = filteredItems.first(where: { $0.id == selectedID }) else {
-                    return .ignored
-                }
-                OverlayWindowController.shared.pasteAndHide(content: item.content)
-                return .handled
-            }
-            .onKeyPress(.escape) {
-                OverlayWindowController.shared.hide()
-                return .handled
-            }
 
             Divider()
 
@@ -109,5 +105,35 @@ struct ClipboardOverlayView: View {
                     .padding(.vertical, 6)
             }
         }
+    }
+
+    // MARK: - Keyboard Actions
+
+    private func moveSelectionDown() {
+        guard !filteredItems.isEmpty else { return }
+        if let current = selectedID,
+           let idx = filteredItems.firstIndex(where: { $0.id == current }),
+           idx + 1 < filteredItems.count {
+            selectedID = filteredItems[idx + 1].id
+        } else {
+            selectedID = filteredItems.first?.id
+        }
+    }
+
+    private func moveSelectionUp() {
+        guard !filteredItems.isEmpty else { return }
+        if let current = selectedID,
+           let idx = filteredItems.firstIndex(where: { $0.id == current }),
+           idx > 0 {
+            selectedID = filteredItems[idx - 1].id
+        } else {
+            selectedID = filteredItems.last?.id
+        }
+    }
+
+    private func pasteSelected() {
+        guard let selectedID,
+              let item = filteredItems.first(where: { $0.id == selectedID }) else { return }
+        OverlayWindowController.shared.pasteAndHide(content: item.content)
     }
 }
