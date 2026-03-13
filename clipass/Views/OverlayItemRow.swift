@@ -8,7 +8,10 @@ struct OverlayItemRow: View {
 
     let item: ClipboardItem
     var isSelected: Bool = false
+    var onTap: (() -> Void)? = nil
     var onDoubleTap: (() -> Void)? = nil
+
+    @State private var isHovered = false
 
     private var previewText: String {
         DisplayFormatter.format(item.content, maxLength: 100, patterns: [])
@@ -60,12 +63,18 @@ struct OverlayItemRow: View {
         .padding(.vertical, 6)
         .background(
             RoundedRectangle(cornerRadius: 6)
-                .fill(isSelected ? Color.accentColor : Color.clear)
+                .fill(isSelected ? Color.accentColor : isHovered ? Color.primary.opacity(0.08) : Color.clear)
                 .padding(.horizontal, 4)
         )
         .contentShape(Rectangle())
+        .onHover { hovering in
+            isHovered = hovering
+        }
         .onTapGesture(count: 2) {
             onDoubleTap?()
         }
+        .simultaneousGesture(TapGesture(count: 1).onEnded {
+            onTap?()
+        })
     }
 }

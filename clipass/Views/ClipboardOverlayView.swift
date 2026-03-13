@@ -93,15 +93,15 @@ struct ClipboardOverlayView: View {
                             OverlayItemRow(
                                 item: item,
                                 isSelected: item.id == selectedID,
+                                onTap: {
+                                    selectedID = item.id
+                                },
                                 onDoubleTap: {
                                     selectedID = item.id
                                     pasteSelected()
                                 }
                             )
                             .id(item.id)
-                            .onTapGesture {
-                                selectedID = item.id
-                            }
                         }
                     }
                     .padding(.vertical, 4)
