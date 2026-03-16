@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Overlay UI & Theming
 status: planning
-stopped_at: Completed 13-01-PLAN.md
-last_updated: "2026-03-16T05:06:35.071Z"
+stopped_at: Completed 13-02-PLAN.md (awaiting human verify checkpoint)
+last_updated: "2026-03-16T05:11:29.426Z"
 last_activity: 2026-03-13 — v2.0 roadmap created (phases 12-14)
 progress:
   total_phases: 14
-  completed_phases: 10
+  completed_phases: 11
   total_plans: 20
-  completed_plans: 18
+  completed_plans: 19
   percent: 0
 ---
 
@@ -57,6 +57,7 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 | Phase 12-overlay-panel P02 | 5min | 2 tasks | 5 files |
 | Phase 12-overlay-panel P02 | 15min | 3 tasks | 6 files |
 | Phase 13-theme-system P01 | 2min | 2 tasks | 5 files |
+| Phase 13-theme-system P02 | 10min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -82,6 +83,9 @@ See PROJECT.md Key Decisions table for full list with outcomes.
 - [Phase 13-theme-system]: Dark/Nord solid backgrounds — opaque palettes don't benefit from vibrancy
 - [Phase 13-theme-system]: ThemeManager singleton in AppServices injected via .environment() into both overlay and Settings
 - [Phase 13-theme-system]: forceAppearance set in updateNSView to respect NSAppearance hierarchy resolution timing
+- [Phase 13-theme-system]: NSViewRepresentable receives theme as explicit parameter — @Environment unreliable for NSView update cycles
+- [Phase 13-theme-system]: MiniOverlayMockup uses solid Rectangle fill (no VisualEffectView) — NSVisualEffectView doesn't render at reduced scale
+- [Phase 13-theme-system]: scaleEffect(0.5) + frame collapse pattern for mini mockup preview cards (Research Pitfall 2)
 
 ### Pending Todos
 
@@ -94,6 +98,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T05:06:35.068Z
-Stopped at: Completed 13-01-PLAN.md
+Last session: 2026-03-16T05:11:29.423Z
+Stopped at: Completed 13-02-PLAN.md (awaiting human verify checkpoint)
 Resume file: None
