@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Overlay UI & Theming
 status: planning
-stopped_at: Phase 13 context gathered
-last_updated: "2026-03-16T04:18:24.099Z"
+stopped_at: Completed 13-01-PLAN.md
+last_updated: "2026-03-16T05:06:35.071Z"
 last_activity: 2026-03-13 — v2.0 roadmap created (phases 12-14)
 progress:
   total_phases: 14
   completed_phases: 10
-  total_plans: 18
-  completed_plans: 17
+  total_plans: 20
+  completed_plans: 18
   percent: 0
 ---
 
@@ -56,6 +56,7 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 | Phase 12-overlay-panel P01 | 2 | 2 tasks | 2 files |
 | Phase 12-overlay-panel P02 | 5min | 2 tasks | 5 files |
 | Phase 12-overlay-panel P02 | 15min | 3 tasks | 6 files |
+| Phase 13-theme-system P01 | 2min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -78,6 +79,9 @@ See PROJECT.md Key Decisions table for full list with outcomes.
 - [Phase 12-overlay-panel]: OverlaySearchField (NSViewRepresentable + NSTextField subclass) replaces @FocusState — SwiftUI focus unreliable in .nonactivatingPanel; AppKit makeFirstResponder is canonical fix
 - [Phase 12-overlay-panel]: Arrow keys intercepted in NSTextField.keyDown subclass (not SwiftUI .onKeyPress) — SwiftUI key press requires SwiftUI first-responder status which AppKit fields don't propagate back
 - [Phase 12-overlay-panel]: cancelOperation(:) added to OverlayPanel as ESC fallback — handles edge case where field loses first-responder before ESC keyDown fires
+- [Phase 13-theme-system]: Dark/Nord solid backgrounds — opaque palettes don't benefit from vibrancy
+- [Phase 13-theme-system]: ThemeManager singleton in AppServices injected via .environment() into both overlay and Settings
+- [Phase 13-theme-system]: forceAppearance set in updateNSView to respect NSAppearance hierarchy resolution timing
 
 ### Pending Todos
 
@@ -90,6 +94,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T04:18:24.095Z
-Stopped at: Phase 13 context gathered
-Resume file: .planning/phases/13-theme-system/13-CONTEXT.md
+Last session: 2026-03-16T05:06:35.068Z
+Stopped at: Completed 13-01-PLAN.md
+Resume file: None
