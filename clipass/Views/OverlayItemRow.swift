@@ -6,12 +6,16 @@ import SwiftUI
 /// holds first-responder status and the list itself is never focused.
 struct OverlayItemRow: View {
 
+    @Environment(ThemeManager.self) private var themeManager
+
     let item: ClipboardItem
     var isSelected: Bool = false
     var onTap: (() -> Void)? = nil
     var onDoubleTap: (() -> Void)? = nil
 
     @State private var isHovered = false
+
+    private var theme: Theme { themeManager.current }
 
     private var previewText: String {
         DisplayFormatter.format(item.content, maxLength: 100, patterns: [])
@@ -39,31 +43,31 @@ struct OverlayItemRow: View {
                 if item.isPinned {
                     Image(systemName: "pin.fill")
                         .font(.caption2)
-                        .foregroundColor(.orange)
+                        .foregroundColor(.orange)  // Brand color — not themed
                 }
                 Text(previewText)
                     .lineLimit(1)
-                    .font(.body)
-                    .foregroundColor(isSelected ? .white : .primary)
+                    .font(.system(size: theme.bodyFontSize, weight: theme.titleFontWeight))
+                    .foregroundColor(isSelected ? .white : theme.primaryText)
             }
             HStack {
                 if let sourceApp = item.sourceApp {
                     Text(sourceApp)
                         .font(.caption2)
-                        .foregroundColor(isSelected ? .white.opacity(0.75) : .secondary)
+                        .foregroundColor(isSelected ? Color.white.opacity(0.75) : theme.secondaryText)
                 }
                 Spacer()
                 Text(relativeTime)
                     .font(.caption2)
-                    .foregroundColor(isSelected ? .white.opacity(0.75) : .secondary)
+                    .foregroundColor(isSelected ? Color.white.opacity(0.75) : theme.secondaryText)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12)
-        .padding(.vertical, 6)
+        .padding(.vertical, theme.itemVerticalPadding)
         .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(isSelected ? Color.accentColor : isHovered ? Color.primary.opacity(0.08) : Color.clear)
+            RoundedRectangle(cornerRadius: theme.itemCornerRadius)
+                .fill(isSelected ? theme.itemBackground : isHovered ? theme.primaryText.opacity(0.08) : Color.clear)
                 .padding(.horizontal, 4)
         )
         .contentShape(Rectangle())

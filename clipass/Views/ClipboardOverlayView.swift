@@ -7,11 +7,16 @@ import SwiftData
 struct ClipboardOverlayView: View {
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(ThemeManager.self) private var themeManager
     @Query(sort: \ClipboardItem.timestamp, order: .reverse) private var items: [ClipboardItem]
 
     @State private var searchText = ""
     @State private var selectedID: ClipboardItem.ID?
     @State private var showContent = false
+
+    // MARK: - Theme Convenience
+
+    private var theme: Theme { themeManager.current }
 
     // MARK: - Filtered Items
 
@@ -25,12 +30,33 @@ struct ClipboardOverlayView: View {
         return sorted.filter { $0.content.localizedCaseInsensitiveContains(searchText) }
     }
 
+    // MARK: - Themed Divider
+
+    @ViewBuilder private var themedDivider: some View {
+        switch theme.dividerStyle {
+        case .standard:
+            Rectangle()
+                .fill(theme.dividerColor)
+                .frame(height: 1)
+        case .thick:
+            Rectangle()
+                .fill(theme.dividerColor)
+                .frame(height: 2)
+        case .none:
+            EmptyView()
+        }
+    }
+
     // MARK: - Body
 
     var body: some View {
         ZStack {
-            // Frosted glass vibrancy background
-            VisualEffectView()
+            // Theme-driven background — vibrancy, tinted vibrancy, or solid
+            VisualEffectView(
+                backgroundMode: theme.backgroundMode,
+                forceAppearance: theme.forceAppearance,
+                solidColor: NSColor(theme.overlayBackground)
+            )
 
             // Content with animation
             if showContent {
@@ -39,7 +65,7 @@ struct ClipboardOverlayView: View {
                     .animation(.easeOut(duration: 0.15), value: showContent)
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: theme.cornerRadius))
         .frame(width: 640, height: 400)
         .onAppear {
             showContent = true
@@ -72,6 +98,7 @@ struct ClipboardOverlayView: View {
             OverlaySearchField(
                 text: $searchText,
                 placeholder: "Search clipboard...",
+                theme: theme,
                 onArrowUp: moveSelectionUp,
                 onArrowDown: moveSelectionDown,
                 onEscape: { OverlayWindowController.shared.hide() },
@@ -80,7 +107,7 @@ struct ClipboardOverlayView: View {
             .frame(height: 44)
             .padding(.horizontal, 12)
 
-            Divider()
+            themedDivider
 
             // Clipboard list — selection and scroll position are driven entirely by selectedID.
             // Arrow key events are handled by OverlaySearchField and update selectedID;
@@ -116,14 +143,14 @@ struct ClipboardOverlayView: View {
                 }
             }
 
-            Divider()
+            themedDivider
 
             // Bottom bar — item count
             HStack {
                 Spacer()
                 Text("\(filteredItems.count) item\(filteredItems.count == 1 ? "" : "s")")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(theme.secondaryText)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
             }

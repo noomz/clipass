@@ -11,10 +11,14 @@ import SwiftUI
 ///      parent view can update the List selection without SwiftUI ever receiving the key event.
 ///   3. ESC dismissal: intercepts Escape and calls `onEscape` because `.onKeyPress(.escape)` on
 ///      a List view does not fire when the search field holds first-responder status.
+///
+/// Theme colors are applied in both `makeNSView` and `updateNSView` so initial state
+/// and subsequent theme changes both render correctly.
 struct OverlaySearchField: NSViewRepresentable {
 
     @Binding var text: String
     var placeholder: String = "Search clipboard..."
+    var theme: Theme
     var onArrowUp: () -> Void = {}
     var onArrowDown: () -> Void = {}
     var onEscape: () -> Void = {}
@@ -25,11 +29,8 @@ struct OverlaySearchField: NSViewRepresentable {
     func makeNSView(context: Context) -> InterceptingTextField {
         let field = InterceptingTextField()
         field.delegate = context.coordinator
-        field.placeholderString = placeholder
         field.isBordered = false
-        field.drawsBackground = false
         field.focusRingType = .none
-        field.font = NSFont.systemFont(ofSize: NSFont.systemFontSize)
         field.cell?.wraps = false
         field.cell?.isScrollable = true
         field.stringValue = text
@@ -37,6 +38,9 @@ struct OverlaySearchField: NSViewRepresentable {
         field.onArrowDown = onArrowDown
         field.onEscape = onEscape
         field.onReturn = onReturn
+
+        // Apply initial theme styling
+        applyTheme(to: field)
 
         // Request first-responder status once the view is installed in a window.
         // Using asyncAfter(0) defers until the runloop tick after the hosting view
@@ -59,10 +63,40 @@ struct OverlaySearchField: NSViewRepresentable {
         nsView.onArrowDown = onArrowDown
         nsView.onEscape = onEscape
         nsView.onReturn = onReturn
+
+        // Re-apply theme colors on every update so theme changes take effect immediately.
+        applyTheme(to: nsView)
     }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
+    }
+
+    // MARK: Theme Application
+
+    private func applyTheme(to nsView: NSTextField) {
+        nsView.textColor = NSColor(theme.searchFieldText)
+        nsView.font = NSFont.systemFont(ofSize: theme.bodyFontSize)
+
+        // Placeholder with themed color
+        let placeholderAttributes: [NSAttributedString.Key: Any] = [
+            .foregroundColor: NSColor(theme.searchFieldPlaceholder),
+            .font: NSFont.systemFont(ofSize: theme.bodyFontSize)
+        ]
+        nsView.placeholderAttributedString = NSAttributedString(
+            string: placeholder,
+            attributes: placeholderAttributes
+        )
+
+        // Background — only draw for solid background modes to avoid covering vibrancy
+        switch theme.backgroundMode {
+        case .solid:
+            nsView.drawsBackground = true
+            nsView.backgroundColor = NSColor(theme.searchFieldBackground)
+        default:
+            nsView.drawsBackground = false
+            nsView.backgroundColor = .clear
+        }
     }
 
     // MARK: Coordinator
