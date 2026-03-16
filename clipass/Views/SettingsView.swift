@@ -40,6 +40,9 @@ struct SettingsView: View {
             Tab("Actions", systemImage: "cursorarrow.click.2") {
                 ContextActionsView()
             }
+            Tab("Appearance", systemImage: "paintbrush") {
+                AppearanceSettingsView()
+            }
         }
         .tabViewStyle(.sidebarAdaptable)
     }
@@ -58,6 +61,8 @@ struct SettingsView: View {
                 .tabItem { Label("Display", systemImage: "text.alignleft") }
             ContextActionsView()
                 .tabItem { Label("Actions", systemImage: "cursorarrow.click.2") }
+            AppearanceSettingsView()
+                .tabItem { Label("Appearance", systemImage: "paintbrush") }
         }
     }
 }
