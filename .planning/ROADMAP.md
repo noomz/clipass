@@ -96,7 +96,7 @@ Plans:
 
 </details>
 
-### 🚧 v2.0 Overlay UI & Theming (In Progress)
+### v2.0 Overlay UI & Theming (In Progress)
 
 **Milestone Goal:** Raycast-style floating overlay panel, semantic theme system, and click-to-edit inline text editor.
 
@@ -115,22 +115,23 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 12-01-PLAN.md — NSPanel foundation (OverlayPanel, OverlayWindowController, hotkey registration, show/hide/toggle, ESC/click-outside dismiss)
-- [ ] 12-02-PLAN.md — Overlay SwiftUI view (ClipboardOverlayView, search, keyboard nav, Return-to-paste, vibrancy, animation, Settings hotkey recorder)
+- [x] 12-01-PLAN.md — NSPanel foundation (OverlayPanel, OverlayWindowController, hotkey registration, show/hide/toggle, ESC/click-outside dismiss)
+- [x] 12-02-PLAN.md — Overlay SwiftUI view (ClipboardOverlayView, search, keyboard nav, Return-to-paste, vibrancy, animation, Settings hotkey recorder)
 
 ### Phase 13: Theme System
 **Goal**: Users can select a theme in Settings that styles the overlay and persists across restarts
 **Depends on**: Phase 12
 **Requirements**: THME-01, THME-02, THME-03, THME-04
 **Success Criteria** (what must be TRUE):
-  1. User can open Settings and see an Appearance tab with 4 predefined themes (Dark, Light, Midnight, Nord)
+  1. User can open Settings and see an Appearance tab with 5 theme options (System, Dark, Light, Midnight, Nord)
   2. User can select a theme and immediately see the overlay reflect the new colors without restarting
   3. The selected theme is still active after closing and reopening the app
   4. The theme picker shows a live preview of each theme before the user commits
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 13-01: Theme system (Theme struct, ThemeManager @Observable, 4 predefined themes, EnvironmentValues injection, AppearanceSettingsView, @AppStorage persistence)
+- [ ] 13-01-PLAN.md — Theme model and infrastructure (Theme struct, ThemeManager @Observable, 5 theme definitions, VisualEffectView BackgroundMode, environment injection)
+- [ ] 13-02-PLAN.md — Theme consumption and settings UI (overlay view theming, AppearanceSettingsView with mini mockup preview cards, Appearance settings tab)
 
 ### Phase 14: Inline Editor
 **Goal**: Users can edit a clipboard item directly in the overlay and have changes immediately reflected in the menu bar popup
@@ -164,6 +165,6 @@ Phases execute in numeric order: 12 → 13 → 14
 | 9. Settings Navigation | v1.1 | 1/1 | Complete | 2026-03-13 |
 | 10. (merged) | v1.1 | 0/0 | Complete | 2026-03-13 |
 | 11. Smart Context Actions | v1.1 | 1/1 | Complete | 2026-03-13 |
-| 12. Overlay Panel | 2/2 | Complete    | 2026-03-13 | - |
-| 13. Theme System | v2.0 | 0/1 | Not started | - |
+| 12. Overlay Panel | v2.0 | 2/2 | Complete | 2026-03-13 |
+| 13. Theme System | v2.0 | 0/2 | Not started | - |
 | 14. Inline Editor | v2.0 | 0/1 | Not started | - |
