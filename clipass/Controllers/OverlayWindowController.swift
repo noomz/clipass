@@ -90,9 +90,10 @@ final class OverlayWindowController {
     private init() {
         panel = OverlayPanel()
 
-        // Inject the real overlay UI with model context from AppServices.
+        // Inject the real overlay UI with model context and theme from AppServices.
         let overlayView = ClipboardOverlayView()
             .modelContext(AppServices.shared.modelContainer.mainContext)
+            .environment(AppServices.shared.themeManager)
         panel.contentView = NSHostingView(rootView: overlayView)
 
         // Observe resignKey notification to restore focus to the previous app.

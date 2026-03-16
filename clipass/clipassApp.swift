@@ -16,6 +16,7 @@ final class AppServices {
     let clipboardMonitor = ClipboardMonitor()
     let transformEngine = TransformEngine()
     let hookEngine = HookEngine()
+    let themeManager = ThemeManager()
 
     private var isInitialized = false
 
@@ -123,6 +124,7 @@ struct clipassApp: App {
         Window("Settings", id: "settings") {
             SettingsView()
                 .modelContext(services.modelContainer.mainContext)
+                .environment(services.themeManager)
         }
         .windowResizability(.contentSize)
         .windowToolbarStyle(.unified)
