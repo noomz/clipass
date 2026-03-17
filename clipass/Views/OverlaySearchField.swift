@@ -88,15 +88,10 @@ struct OverlaySearchField: NSViewRepresentable {
             attributes: placeholderAttributes
         )
 
-        // Background — only draw for solid background modes to avoid covering vibrancy
-        switch theme.backgroundMode {
-        case .solid:
-            nsView.drawsBackground = true
-            nsView.backgroundColor = NSColor(theme.searchFieldBackground)
-        default:
-            nsView.drawsBackground = false
-            nsView.backgroundColor = .clear
-        }
+        // Never use NSTextField drawsBackground — the search field background
+        // is rendered as a SwiftUI shape in ClipboardOverlayView instead.
+        nsView.drawsBackground = false
+        nsView.backgroundColor = .clear
     }
 
     // MARK: Coordinator

@@ -20,20 +20,20 @@ final class ThemeManager {
     @ObservationIgnored
     @AppStorage("selectedThemeID") private var storedThemeID: String = ThemeID.system.rawValue
 
-    /// The currently selected ThemeID, derived from the stored String.
-    var selectedID: ThemeID {
-        ThemeID(rawValue: storedThemeID) ?? .system
-    }
+    /// The currently selected ThemeID, tracked for observation.
+    private(set) var selectedID: ThemeID = .system
 
     init() {
         // Initialize current from the persisted selection, falling back to system.
         let id = ThemeID(rawValue: UserDefaults.standard.string(forKey: "selectedThemeID") ?? ThemeID.system.rawValue) ?? .system
+        selectedID = id
         current = Theme.themes[id] ?? Theme.themes[.system]!
     }
 
     /// Selects a new theme, persists the choice, and updates the active theme immediately.
     func select(_ id: ThemeID) {
         storedThemeID = id.rawValue
+        selectedID = id
         current = Theme.themes[id] ?? Theme.themes[.system]!
     }
 }

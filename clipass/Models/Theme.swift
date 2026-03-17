@@ -46,7 +46,7 @@ extension Color {
 
 /// Declares the rendering strategy for the overlay background.
 /// Each theme carries one of these to tell VisualEffectView which path to take.
-enum BackgroundMode {
+enum BackgroundMode: Equatable {
     /// Standard vibrancy: NSVisualEffectView with the given material.
     case vibrancy(material: NSVisualEffectView.Material)
 
@@ -55,6 +55,16 @@ enum BackgroundMode {
 
     /// Solid opaque background — bypasses NSVisualEffectView entirely.
     case solid
+
+    /// Discriminator string for use as SwiftUI `.id()` — forces view recreation
+    /// when the background mode type changes (vibrancy ↔ solid ↔ tinted).
+    var discriminator: String {
+        switch self {
+        case .vibrancy(let m): return "vibrancy-\(m.rawValue)"
+        case .tintedVibrancy(let m, _, _): return "tinted-\(m.rawValue)"
+        case .solid: return "solid"
+        }
+    }
 }
 
 // MARK: - DividerStyle

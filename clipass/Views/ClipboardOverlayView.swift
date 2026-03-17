@@ -57,6 +57,7 @@ struct ClipboardOverlayView: View {
                 forceAppearance: theme.forceAppearance,
                 solidColor: NSColor(theme.overlayBackground)
             )
+            .id(theme.backgroundMode.discriminator)
 
             // Content with animation
             if showContent {
@@ -106,6 +107,12 @@ struct ClipboardOverlayView: View {
             )
             .frame(height: 44)
             .padding(.horizontal, 12)
+            .background(
+                RoundedRectangle(cornerRadius: theme.itemCornerRadius)
+                    .fill(theme.searchFieldBackground)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+            )
 
             themedDivider
 

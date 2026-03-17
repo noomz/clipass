@@ -112,55 +112,60 @@ struct ThemePreviewCard: View {
     let isSelected: Bool
     let onSelect: () -> Void
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Mini mockup rendered at full resolution then scaled down.
-            // scaleEffect does NOT affect layout, so we must collapse the layout frame manually
-            // after scaling: render at 480x300, scale by 0.5, collapse to 240x150.
-            ZStack(alignment: .topTrailing) {
-                MiniOverlayMockup(theme: theme)
-                    .frame(width: 480, height: 300)
-                    .scaleEffect(0.5, anchor: .topLeading)
-                    .frame(width: 240, height: 150)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+    private let mockupWidth: CGFloat = 480
+    private let mockupHeight: CGFloat = 300
+    private let scale: CGFloat = 0.5
 
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.title2)
-                        .foregroundColor(theme.accentColor)
-                        .background(Circle().fill(Color.white).padding(2))
-                        .padding(6)
+    private var scaledWidth: CGFloat { mockupWidth * scale }
+    private var scaledHeight: CGFloat { mockupHeight * scale }
+
+    var body: some View {
+        Button(action: onSelect) {
+            VStack(alignment: .leading, spacing: 8) {
+                ZStack(alignment: .topTrailing) {
+                    // Use GeometryReader to properly contain the scaled mockup
+                    MiniOverlayMockup(theme: theme)
+                        .frame(width: mockupWidth, height: mockupHeight)
+                        .scaleEffect(scale, anchor: .topLeading)
+                        .frame(width: scaledWidth, height: scaledHeight, alignment: .topLeading)
+                        .clipped()
+
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(theme.accentColor)
+                            .background(Circle().fill(Color.white).padding(2))
+                            .padding(6)
+                    }
                 }
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(
+                            isSelected ? theme.accentColor : Color.primary.opacity(0.15),
+                            lineWidth: isSelected ? 2 : 1
+                        )
+                )
+
+                Text(theme.name)
+                    .font(.headline)
+                    .foregroundColor(.primary)
             }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.primary.opacity(0.04))
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 10))
             .overlay(
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: 10)
                     .stroke(
-                        isSelected ? theme.accentColor : Color.primary.opacity(0.15),
-                        lineWidth: isSelected ? 2 : 1
+                        isSelected ? theme.accentColor.opacity(0.5) : Color.clear,
+                        lineWidth: 1
                     )
             )
-
-            // Theme name label
-            Text(theme.name)
-                .font(.headline)
-                .foregroundColor(.primary)
         }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.primary.opacity(0.04))
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(
-                    isSelected ? theme.accentColor.opacity(0.5) : Color.clear,
-                    lineWidth: 1
-                )
-        )
-        .onTapGesture {
-            onSelect()
-        }
+        .buttonStyle(.plain)
     }
 }
 
