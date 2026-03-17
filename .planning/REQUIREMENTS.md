@@ -22,9 +22,9 @@ Requirements for v2.0 Overlay UI & Theming. Each maps to roadmap phases.
 ### Theming
 
 - [x] **THME-01**: App ships with 4 predefined themes (Dark, Light, Midnight, Nord)
-- [ ] **THME-02**: User can select a theme from a new Appearance tab in Settings
+- [x] **THME-02**: User can select a theme from a new Appearance tab in Settings
 - [x] **THME-03**: Selected theme persists across app restarts
-- [ ] **THME-04**: Theme picker shows live preview of each theme
+- [x] **THME-04**: Theme picker shows live preview of each theme
 
 ### Inline Editor
 
@@ -67,9 +67,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | OVRL-08 | Phase 12 | Complete |
 | OVRL-09 | Phase 12 | Complete |
 | THME-01 | Phase 13 | Complete |
-| THME-02 | Phase 13 | Pending |
+| THME-02 | Phase 13 | Complete |
 | THME-03 | Phase 13 | Complete |
-| THME-04 | Phase 13 | Pending |
+| THME-04 | Phase 13 | Complete |
 | EDIT-01 | Phase 14 | Pending |
 | EDIT-02 | Phase 14 | Pending |
 | EDIT-03 | Phase 14 | Pending |
