@@ -18,9 +18,11 @@ struct EditorTextView: NSViewRepresentable {
 
     func makeNSView(context: Context) -> NSScrollView {
         let scrollView = NSScrollView()
-        let textView = NSTextView()
+        let textView = EditorNSTextView()
 
         textView.delegate = context.coordinator
+        let coordinator = context.coordinator
+        textView.onCommit = { coordinator.parent.onCommit() }
 
         // Text editing configuration
         textView.isEditable = true
@@ -47,6 +49,12 @@ struct EditorTextView: NSViewRepresentable {
         scrollView.drawsBackground = false
         scrollView.autohidesScrollers = true
 
+        // Line number gutter
+        let gutterView = LineNumberGutterView(textView: textView)
+        scrollView.verticalRulerView = gutterView
+        scrollView.hasVerticalRuler = true
+        scrollView.rulersVisible = true
+
         return scrollView
     }
 
@@ -67,6 +75,9 @@ struct EditorTextView: NSViewRepresentable {
 
         // Keep coordinator callbacks current (closures capture latest state)
         context.coordinator.parent = self
+        (textView as? EditorNSTextView)?.onCommit = {
+            context.coordinator.parent.onCommit()
+        }
 
         // Focus: when isActive is true, request first-responder and move cursor to end.
         // Must use DispatchQueue.main.async — same pattern as OverlaySearchField — because
@@ -105,19 +116,126 @@ struct EditorTextView: NSViewRepresentable {
         /// Intercept Cmd+Return (commit) and ESC (cancel) from the editor.
         /// Bare Return inserts a newline (returns false to let NSTextView handle it).
         func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
-            if commandSelector == #selector(NSResponder.insertNewline(_:)) {
-                // Cmd+Return = save; bare Return = newline insertion
-                if NSApp.currentEvent?.modifierFlags.contains(.command) == true {
-                    parent.onCommit()
-                    return true
-                }
-                return false    // let NSTextView insert a newline
-            }
             if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
-                parent.onCancel()
+                // Defer to next runloop — calling onCancel synchronously removes the
+                // EditorTextView from the hierarchy while this delegate is on the stack.
+                DispatchQueue.main.async { [weak self] in self?.parent.onCancel() }
                 return true
             }
             return false
+        }
+    }
+}
+
+// MARK: - EditorNSTextView
+
+/// NSTextView subclass that intercepts Cmd+Return via keyDown.
+/// The doCommandBy delegate doesn't reliably receive Cmd+Return
+/// in non-activating panels, so we catch it at the keyDown level.
+final class EditorNSTextView: NSTextView {
+
+    /// Set by EditorTextView.Coordinator to call back into SwiftUI.
+    var onCommit: (() -> Void)?
+
+    override func keyDown(with event: NSEvent) {
+        // Cmd+Return → commit edit
+        if event.modifierFlags.contains(.command) && event.keyCode == 36 {
+            DispatchQueue.main.async { [weak self] in self?.onCommit?() }
+            return
+        }
+        super.keyDown(with: event)
+    }
+}
+
+// MARK: - Line Number Gutter
+
+/// Draws line numbers in the vertical ruler area of the scroll view.
+final class LineNumberGutterView: NSRulerView {
+
+    private weak var textView: NSTextView?
+    private let gutterWidth: CGFloat = 36
+
+    init(textView: NSTextView) {
+        self.textView = textView
+        super.init(scrollView: textView.enclosingScrollView, orientation: .verticalRuler)
+        self.ruleThickness = gutterWidth
+        self.clientView = textView
+        self.clipsToBounds = true
+
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(textDidChange(_:)),
+            name: NSText.didChangeNotification, object: textView
+        )
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(boundsDidChange(_:)),
+            name: NSView.boundsDidChangeNotification,
+            object: textView.enclosingScrollView?.contentView
+        )
+    }
+
+    @available(*, unavailable)
+    required init(coder: NSCoder) { fatalError() }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    @objc private func textDidChange(_ note: Notification) { needsDisplay = true }
+    @objc private func boundsDidChange(_ note: Notification) { needsDisplay = true }
+
+    override func drawHashMarksAndLabels(in rect: NSRect) {
+        guard let textView = textView,
+              textView.window != nil,
+              let layoutManager = textView.layoutManager,
+              let textContainer = textView.textContainer else { return }
+
+        let text = textView.string as NSString
+        guard text.length > 0 else { return }
+
+        // Ensure layout is complete before querying glyph positions
+        layoutManager.ensureLayout(for: textContainer)
+
+        let visibleRect = scrollView?.contentView.bounds ?? rect
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: NSFont.smallSystemFontSize, weight: .regular),
+            .foregroundColor: NSColor.secondaryLabelColor
+        ]
+
+        let totalGlyphs = layoutManager.numberOfGlyphs
+        guard totalGlyphs > 0 else { return }
+
+        let glyphRange = layoutManager.glyphRange(forBoundingRect: visibleRect, in: textContainer)
+        guard glyphRange.location != NSNotFound else { return }
+        let charRange = layoutManager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
+        guard charRange.location != NSNotFound, charRange.location < text.length else { return }
+
+        // Walk each line fragment in the visible range
+        let prefix = charRange.location > 0 ? text.substring(to: charRange.location) : ""
+        var lineNumber = prefix.components(separatedBy: "\n").count
+        var index = charRange.location
+
+        while index < text.length && index <= NSMaxRange(charRange) {
+            let lineRange = text.lineRange(for: NSRange(location: index, length: 0))
+            guard lineRange.location != NSNotFound, lineRange.length > 0 else { break }
+
+            let glyphIdx = layoutManager.glyphIndexForCharacter(at: lineRange.location)
+            guard glyphIdx < totalGlyphs else { break }
+
+            var lineRect = layoutManager.lineFragmentRect(forGlyphAt: glyphIdx, effectiveRange: nil)
+            lineRect.origin.y -= visibleRect.origin.y
+
+            let numStr = "\(lineNumber)" as NSString
+            let size = numStr.size(withAttributes: attrs)
+            let drawPoint = NSPoint(
+                x: gutterWidth - size.width - 6,
+                y: lineRect.origin.y + (lineRect.height - size.height) / 2
+            )
+            numStr.draw(at: drawPoint, withAttributes: attrs)
+
+            lineNumber += 1
+            let nextIndex = NSMaxRange(lineRange)
+            if nextIndex <= index { break }  // safety: no progress
+            index = nextIndex
         }
     }
 }

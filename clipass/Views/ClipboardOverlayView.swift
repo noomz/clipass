@@ -261,16 +261,27 @@ struct ClipboardOverlayView: View {
         }
         item.content = editorContent
         try? modelContext.save()
+        // Remove editor view first, then clear content on next runloop
+        // to avoid updateNSView + gutter redraw during teardown
         withAnimation(.easeOut(duration: 0.15)) {
             editingItemID = nil
+        }
+        DispatchQueue.main.async {
+            editorContent = ""
         }
         // selectedID remains unchanged — edited item stays highlighted
     }
 
     private func cancelEdit() {
-        editorContent = ""
+        // Set editingItemID = nil first to remove the editor view,
+        // THEN clear editorContent. Clearing content while the view is still
+        // mounted triggers updateNSView + gutter redraw during teardown → crash.
         withAnimation(.easeOut(duration: 0.15)) {
             editingItemID = nil
+        }
+        // Defer content clear to after the view is removed from the hierarchy
+        DispatchQueue.main.async {
+            editorContent = ""
         }
         // selectedID unchanged — item remains selected after cancel
     }

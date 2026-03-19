@@ -23,6 +23,15 @@ struct InlineEditorPanel: View {
                 onCommit: onSave,
                 onCancel: onCancel
             )
+            .padding(4)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(theme.primaryText.opacity(0.04))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(theme.secondaryText.opacity(0.3), lineWidth: 1)
+            )
             .padding(.horizontal, 12)
             .padding(.top, 10)
             .padding(.bottom, 6)

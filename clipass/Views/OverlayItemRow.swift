@@ -54,15 +54,14 @@ struct OverlayItemRow: View {
 
                 Spacer()
 
-                // Pencil icon — visible on hover or selection, hidden while this row is being edited
-                if (isSelected || isHovered) && !isEditing {
-                    Button(action: { onEdit?() }) {
-                        Image(systemName: "pencil")
-                            .font(.caption)
-                            .foregroundColor(theme.accentColor)
-                    }
-                    .buttonStyle(.plain)
+                // Pencil icon — always present for hit-testing, opacity-driven visibility
+                Button(action: { onEdit?() }) {
+                    Image(systemName: "pencil")
+                        .font(.caption)
+                        .foregroundColor(isSelected ? .white.opacity(0.85) : theme.accentColor)
                 }
+                .buttonStyle(.plain)
+                .opacity((isSelected || isHovered) && !isEditing ? 1 : 0)
             }
             HStack {
                 if let sourceApp = item.sourceApp {
