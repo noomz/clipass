@@ -12,6 +12,8 @@ struct OverlayItemRow: View {
     var isSelected: Bool = false
     var onTap: (() -> Void)? = nil
     var onDoubleTap: (() -> Void)? = nil
+    var onEdit: (() -> Void)? = nil
+    var isEditing: Bool = false     // true when THIS row is currently being edited
 
     @State private var isHovered = false
 
@@ -49,6 +51,18 @@ struct OverlayItemRow: View {
                     .lineLimit(1)
                     .font(.system(size: theme.bodyFontSize, weight: theme.titleFontWeight))
                     .foregroundColor(isSelected ? .white : theme.primaryText)
+
+                Spacer()
+
+                // Pencil icon — visible on hover or selection, hidden while this row is being edited
+                if (isSelected || isHovered) && !isEditing {
+                    Button(action: { onEdit?() }) {
+                        Image(systemName: "pencil")
+                            .font(.caption)
+                            .foregroundColor(theme.accentColor)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
             HStack {
                 if let sourceApp = item.sourceApp {
