@@ -122,33 +122,33 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EDIT-02 | Phase 14 | Complete |
 | EDIT-03 | Phase 14 | Complete |
 | EDIT-04 | Phase 14 | Complete |
-| TAG-01 | Pending | Pending |
-| TAG-02 | Pending | Pending |
-| TAG-03 | Pending | Pending |
-| TAG-04 | Pending | Pending |
-| TAG-05 | Pending | Pending |
-| CLI-01 | Pending | Pending |
-| CLI-02 | Pending | Pending |
-| CLI-03 | Pending | Pending |
-| CLI-04 | Pending | Pending |
-| CLI-05 | Pending | Pending |
-| CLI-06 | Pending | Pending |
-| CLI-07 | Pending | Pending |
-| PUBSUB-01 | Pending | Pending |
-| PUBSUB-02 | Pending | Pending |
-| PUBSUB-03 | Pending | Pending |
-| CHAIN-01 | Pending | Pending |
-| CHAIN-02 | Pending | Pending |
-| CHAIN-03 | Pending | Pending |
-| QOL-01 | Pending | Pending |
-| QOL-02 | Pending | Pending |
-| QOL-03 | Pending | Pending |
+| TAG-01 | Phase 15 | Pending |
+| TAG-02 | Phase 15 | Pending |
+| TAG-03 | Phase 15 | Pending |
+| TAG-04 | Phase 15 | Pending |
+| TAG-05 | Phase 15 | Pending |
+| CLI-01 | Phase 16 | Pending |
+| CLI-02 | Phase 16 | Pending |
+| CLI-03 | Phase 16 | Pending |
+| CLI-06 | Phase 16 | Pending |
+| CLI-07 | Phase 16 | Pending |
+| CLI-04 | Phase 17 | Pending |
+| PUBSUB-01 | Phase 17 | Pending |
+| PUBSUB-02 | Phase 17 | Pending |
+| PUBSUB-03 | Phase 17 | Pending |
+| CHAIN-01 | Phase 18 | Pending |
+| CHAIN-02 | Phase 18 | Pending |
+| CHAIN-03 | Phase 18 | Pending |
+| CLI-05 | Phase 18 | Pending |
+| QOL-01 | Phase 19 | Pending |
+| QOL-02 | Phase 19 | Pending |
+| QOL-03 | Phase 19 | Pending |
 
 **Coverage:**
 - v2.1 requirements: 21 total
-- Mapped to phases: 0
-- Unmapped: 21
+- Mapped to phases: 21
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-13*
-*Last updated: 2026-03-19 — v2.1 requirements added*
+*Last updated: 2026-03-19 — v2.1 phase assignments added (phases 15-19)*

@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
 milestone: v2.1
-milestone_name: Polish & Competitive Features
+milestone_name: Developer Power Tools
 status: active
 stopped_at: ""
 last_updated: "2026-03-19T12:30:00.000Z"
-last_activity: 2026-03-19 — Milestone v2.1 started
+last_activity: 2026-03-19 — v2.1 roadmap created (phases 15-19)
 progress:
-  total_phases: 0
+  total_phases: 5
   completed_phases: 0
-  total_plans: 0
+  total_plans: 10
   completed_plans: 0
   percent: 0
 ---
@@ -18,17 +18,17 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-13)
+See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Smart transforms — auto-cleaning and formatting clipboard content before paste
-**Current focus:** Defining requirements for v2.1
+**Current focus:** Phase 15 — Tags (ready to plan)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 15 of 19 (Tags)
 Plan: —
-Status: Researching competitors
-Last activity: 2026-03-19 — Milestone v2.1 started
+Status: Ready to plan
+Last activity: 2026-03-19 — v2.1 roadmap created, phases 15-19 defined
 
 Progress: [░░░░░░░░░░] 0% (v2.1 milestone)
 
@@ -36,62 +36,32 @@ Progress: [░░░░░░░░░░] 0% (v2.1 milestone)
 
 **Velocity:**
 
-- Total plans completed: 16 (v1.0: 9, v1.1: 7)
+- Total plans completed: 16 (v1.0: 9, v1.1: 7, v2.0: 5 — phases 12-14)
 - Average duration: ~4 min/plan
 - Total execution time: ~55 min
 
-**By Phase:**
+**By Phase (v2.0 reference):**
 
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 1. Foundation | 2/2 | ~10 min | ~5 min |
-| 2. History | 2/2 | ~10 min | ~5 min |
-| 3. Transforms | 2/2 | ~10 min | ~5 min |
-| 4. Hooks | 2/2 | ~13 min | ~6.5 min |
-| 5. Settings Window | 1/1 | ~4 min | ~4 min |
-| 6. Filtering | 2/2 | ~4 min | ~2 min |
-| 7. Display | 2/2 | ~6 min | ~3 min |
-| 8. App Behavior | 1/1 | ~2 min | ~2 min |
-| 9. Settings Nav | 1/1 | ~1 min | ~1 min |
-| 11. Context Actions | 1/1 | ~5 min | ~5 min |
-| Phase 12-overlay-panel P01 | 2 | 2 tasks | 2 files |
-| Phase 12-overlay-panel P02 | 5min | 2 tasks | 5 files |
-| Phase 12-overlay-panel P02 | 15min | 3 tasks | 6 files |
-| Phase 13-theme-system P01 | 2min | 2 tasks | 5 files |
-| Phase 13-theme-system P02 | 10min | 2 tasks | 5 files |
-| Phase 14-inline-editor P01 | ~90min | 3 tasks | 6 files |
+| Phase | Plans | Notes |
+|-------|-------|-------|
+| 12. Overlay Panel | 2/2 | NSPanel, SwiftUI overlay view |
+| 13. Theme System | 2/2 | ThemeManager, Appearance settings |
+| 14. Inline Editor | 1/1 | NSTextView, ESC handling, SwiftData round-trip |
 
 ## Accumulated Context
 
 ### Decisions
 
-See PROJECT.md Key Decisions table for full list with outcomes.
+See PROJECT.md Key Decisions table for full list.
 
-- Phase 8: Used .product(name:package:) for LaunchAtLogin-Modern SPM dependency resolution
-- Phase 9: sidebarAdaptable TabView style for macOS 15+ with tabItem fallback for macOS 14
-- Phase 11: ContentAnalyzer detects content types for smart context menus
-- Phase 11: isPinned field on ClipboardItem exempt from auto-cleanup and max-items pruning
-- [v2.0 arch]: Overlay must be NSPanel subclass — not SwiftUI Window scene — for non-activating floating behavior
-- [v2.0 arch]: Theme applied to overlay only; menu bar popup retains existing style
-- [v2.0 arch]: Inline editor updates SwiftData only on save (no pasteboard write) to prevent history duplication
-- [Phase 12-overlay-panel]: NSPanel init styleMask set in super.init() — nonactivatingPanel bit does not update kCGSPreventsActivationTagBit correctly post-init
-- [Phase 12-overlay-panel]: toggleOverlay handler omits NSApp.activate() — non-activating overlay requires opposite pattern from toggleClipboard
-- [Phase 12-overlay-panel]: No default hotkey for toggleOverlay — user configures in Settings to avoid global shortcut conflicts
-- [Phase 12-overlay-panel]: NSVisualEffectView state=.active required for .accessory policy blur rendering
-- [Phase 12-overlay-panel]: overlayWillShow notification posted before makeKeyAndOrderFront for clean state reset
-- [Phase 12-overlay-panel]: OverlaySearchField (NSViewRepresentable + NSTextField subclass) replaces @FocusState — SwiftUI focus unreliable in .nonactivatingPanel; AppKit makeFirstResponder is canonical fix
-- [Phase 12-overlay-panel]: Arrow keys intercepted in NSTextField.keyDown subclass (not SwiftUI .onKeyPress) — SwiftUI key press requires SwiftUI first-responder status which AppKit fields don't propagate back
-- [Phase 12-overlay-panel]: cancelOperation(:) added to OverlayPanel as ESC fallback — handles edge case where field loses first-responder before ESC keyDown fires
-- [Phase 13-theme-system]: Dark/Nord solid backgrounds — opaque palettes don't benefit from vibrancy
-- [Phase 13-theme-system]: ThemeManager singleton in AppServices injected via .environment() into both overlay and Settings
-- [Phase 13-theme-system]: forceAppearance set in updateNSView to respect NSAppearance hierarchy resolution timing
-- [Phase 13-theme-system]: NSViewRepresentable receives theme as explicit parameter — @Environment unreliable for NSView update cycles
-- [Phase 13-theme-system]: MiniOverlayMockup uses solid Rectangle fill (no VisualEffectView) — NSVisualEffectView doesn't render at reduced scale
-- [Phase 13-theme-system]: scaleEffect(0.5) + frame collapse pattern for mini mockup preview cards (Research Pitfall 2)
-- [Phase 14-inline-editor]: NSTextView used directly (not SwiftUI TextEditor) — unreliable focus in non-activating NSPanel
-- [Phase 14-inline-editor]: cancelEditHandler closure on OverlayPanel intercepts panel-level ESC before hide() — required for two-stage ESC when EditorTextView loses first-responder
-- [Phase 14-inline-editor]: Save path writes only to SwiftData modelContext, not NSPasteboard — prevents duplicate clipboard history entry
-- [Phase 14-inline-editor]: shouldRefocus parameter on OverlaySearchField lets search field reclaim focus after editor closes without racing EditorTextView's own focus claim
+Recent decisions relevant to v2.1:
+- [v2.0 arch]: NSTextView used directly (not SwiftUI TextEditor) — unreliable focus in non-activating NSPanel
+- [v2.0 arch]: Overlay must be NSPanel subclass for non-activating floating behavior
+- [v2.1 arch]: CLI is a separate executableTarget (clipass-cli) sharing ClipassShared library with the app
+- [v2.1 arch]: Unix domain socket at ~/Library/Application Support/clipass/clipass.sock — 4-byte length-prefix framing
+- [v2.1 arch]: All SwiftData operations dispatch to @MainActor from socket background thread
+- [v2.1 arch]: Action chains are manual-only — cannot be triggered by pub/sub (security)
+- [v2.1 arch]: Tags use SwiftData implicit many-to-many; additive schema migration (lightweight)
 
 ### Pending Todos
 
@@ -99,11 +69,10 @@ None.
 
 ### Blockers/Concerns
 
-- [Phase 12]: Validate @FocusState reliability in NSPanel-hosted SwiftUI — NSApp.keyWindow?.makeFirstResponder() fallback may be needed
-- [Phase 13]: Verify NSVisualEffectView vibrancy renders with blur under .accessory activation policy (.state = .active fix documented, needs in-app validation)
+None at roadmap creation.
 
 ## Session Continuity
 
-Last session: 2026-03-19T00:00:00.000Z
-Stopped at: Completed 14-inline-editor/14-01-PLAN.md
-Resume file: .planning/phases/14-inline-editor/14-01-SUMMARY.md
+Last session: 2026-03-19
+Stopped at: v2.1 roadmap created — phases 15-19 defined, ready to plan Phase 15
+Resume file: None

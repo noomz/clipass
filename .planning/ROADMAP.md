@@ -4,7 +4,8 @@
 
 - ✅ **v1.0 MVP** - Phases 1-5 (shipped 2026-02-05)
 - ✅ **v1.1 More Control** - Phases 6-11 (shipped 2026-03-13)
-- 🚧 **v2.0 Overlay UI & Theming** - Phases 12-14 (in progress)
+- ✅ **v2.0 Overlay UI & Theming** - Phases 12-14 (shipped 2026-03-19)
+- 🚧 **v2.1 Developer Power Tools** - Phases 15-19 (in progress)
 
 ## Phases
 
@@ -96,11 +97,8 @@ Plans:
 
 </details>
 
-### v2.0 Overlay UI & Theming (In Progress)
-
-**Milestone Goal:** Raycast-style floating overlay panel, semantic theme system, and click-to-edit inline text editor.
-
-## Phase Details
+<details>
+<summary>✅ v2.0 Overlay UI & Theming (Phases 12-14) - SHIPPED 2026-03-19</summary>
 
 ### Phase 12: Overlay Panel
 **Goal**: Users can summon and use a floating overlay panel to browse and paste clipboard items via keyboard
@@ -130,8 +128,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 13-01-PLAN.md — Theme model and infrastructure (Theme struct, ThemeManager @Observable, 5 theme definitions, VisualEffectView BackgroundMode, environment injection)
-- [ ] 13-02-PLAN.md — Theme consumption and settings UI (overlay view theming, AppearanceSettingsView with mini mockup preview cards, Appearance settings tab)
+- [x] 13-01-PLAN.md — Theme model and infrastructure (Theme struct, ThemeManager @Observable, 5 theme definitions, VisualEffectView BackgroundMode, environment injection)
+- [x] 13-02-PLAN.md — Theme consumption and settings UI (overlay view theming, AppearanceSettingsView with mini mockup preview cards, Appearance settings tab)
 
 ### Phase 14: Inline Editor
 **Goal**: Users can edit a clipboard item directly in the overlay and have changes immediately reflected in the menu bar popup
@@ -145,12 +143,95 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 14-01-PLAN.md — Inline editor (EditorTextView NSViewRepresentable, InlineEditorPanel, pencil icon on rows, edit state management, ESC conflict resolution, SwiftData round-trip)
+- [x] 14-01-PLAN.md — Inline editor (EditorTextView NSViewRepresentable, InlineEditorPanel, pencil icon on rows, edit state management, ESC conflict resolution, SwiftData round-trip)
+
+</details>
+
+### v2.1 Developer Power Tools (In Progress)
+
+**Milestone Goal:** Make clipass a programmable clipboard platform — tags for organization, a CLI binary for terminal workflows, pub/sub event streaming for automation, action chains for multi-step transforms, and small QoL improvements.
+
+## Phase Details
+
+### Phase 15: Tags
+**Goal**: Users can organize clipboard items with colored tags and filter history by tag in the overlay
+**Depends on**: Phase 14
+**Requirements**: TAG-01, TAG-02, TAG-03, TAG-04, TAG-05
+**Success Criteria** (what must be TRUE):
+  1. User can add and remove tags on a clipboard item via the overlay editor or context menu
+  2. User can type `tag:work` in the overlay search field and see only items tagged `work`
+  3. Tags display as colored badges on overlay rows
+  4. User can rename, delete, and set a color for any tag in Settings > Tags
+**Plans**: TBD
+
+Plans:
+- [ ] 15-01: Tag data model (SwiftData Tag @Model, many-to-many with ClipboardItem, schema migration)
+- [ ] 15-02: Tag UI (overlay badges, editor add/remove, context menu "Tag as...", Settings Tags tab)
+
+### Phase 16: CLI Foundation
+**Goal**: Users can interact with clipboard history from the terminal via a `clipass` CLI binary
+**Depends on**: Phase 15
+**Requirements**: CLI-01, CLI-02, CLI-03, CLI-06, CLI-07
+**Success Criteria** (what must be TRUE):
+  1. User can run `clipass list` in the terminal and see recent clipboard items in readable columns
+  2. User can run `clipass copy` (or pipe text to it) and have that text added to clipboard history
+  3. User can run `clipass paste` to print the most recent item, and `clipass delete`/`clipass clear` to remove items
+  4. User can run `clipass search "query"` to find items matching a term
+  5. Any command accepts `--json` to produce machine-readable output suitable for `jq` pipelines
+**Plans**: TBD
+
+Plans:
+- [ ] 16-01: Socket server in-app (Unix domain socket, length-prefix framing, command dispatch to @MainActor SwiftData context, ClipassShared library target)
+- [ ] 16-02: CLI binary and core commands (clipass-cli executableTarget, list/get/copy/paste/delete/clear/search/status, --json flag, item addressing by index or UUID)
+
+### Phase 17: Tag CLI + Pub/Sub
+**Goal**: Users can manage tags from the terminal and stream clipboard events to stdout for scripting
+**Depends on**: Phase 16
+**Requirements**: CLI-04, PUBSUB-01, PUBSUB-02, PUBSUB-03
+**Success Criteria** (what must be TRUE):
+  1. User can run `clipass tag add 3 work` to tag the 3rd most recent item and `clipass tag list` to see all tags with counts
+  2. App broadcasts clipboard events (copy, delete, tag changes, pause/resume, clear) over the Unix socket
+  3. User can run `clipass listen` and see a live stream of newline-delimited JSON events in the terminal
+  4. User can filter the event stream with `--event copy`, `--tag work`, or `--source-app Terminal` flags
+**Plans**: TBD
+
+Plans:
+- [ ] 17-01: Tag CLI commands (clipass tag add/remove/list, clipass list --tag filter, socket protocol for tag operations)
+- [ ] 17-02: Pub/sub event streaming (app-side event broadcaster, subscribe message handling, filter evaluation, clipass listen command)
+
+### Phase 18: Action Chains
+**Goal**: Users can define multi-step transform pipelines, apply them from the overlay context menu, and run them from the terminal
+**Depends on**: Phase 17
+**Requirements**: CHAIN-01, CHAIN-02, CHAIN-03, CLI-05
+**Success Criteria** (what must be TRUE):
+  1. User can open Settings > Chains and create a named pipeline with multiple ordered steps (trim, case, replace, script, existing transform)
+  2. User can right-click a clipboard item in the overlay and choose "Apply Chain" to run a chain on that item's content
+  3. User can pipe text through a chain from the terminal with `clipass chain <name>` or `clipass transform <name>`
+  4. Chains containing `script` steps display a warning indicator in Settings
+**Plans**: TBD
+
+Plans:
+- [ ] 18-01: Action chain model (ActionChain + ChainStep SwiftData/Codable, step execution engine, built-in step types: trim/case/replace/script/transform)
+- [ ] 18-02: Chain UI + CLI (Settings Chains tab with pipeline builder, overlay "Apply Chain" context menu, clipass chain and clipass transform CLI commands)
+
+### Phase 19: QoL
+**Goal**: Users can append to the last clipboard item, pause monitoring, and hide the menu bar icon
+**Depends on**: Phase 15 (tags for append inheritance); Phase 17 (pub/sub for pause/resume events)
+**Requirements**: QOL-01, QOL-02, QOL-03
+**Success Criteria** (what must be TRUE):
+  1. User can trigger a global hotkey (configurable) to append the current clipboard content to the most recent history item instead of creating a new entry
+  2. User can pause clipboard monitoring from the menu bar or via `clipass pause` — the menu bar icon dims and no new items are recorded until resumed
+  3. User can toggle "Show menu bar icon" in Settings > General to hide the icon and access clipass solely through the overlay shortcut or CLI
+**Plans**: TBD
+
+Plans:
+- [ ] 19-01: Copy-append (appendPending flag on ClipboardMonitor, configurable hotkey via KeyboardShortcuts, CLI --append/-a flag, tag inheritance, overlay flash feedback)
+- [ ] 19-02: Pause/resume + hide menu bar (isPaused state, dimmed icon, UserDefaults persistence, CLI pause/resume, pub/sub events, Settings toggle with overlay-shortcut guard)
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 12 → 13 → 14
+Phases execute in numeric order: 15 → 16 → 17 → 18 → 19
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -166,5 +247,10 @@ Phases execute in numeric order: 12 → 13 → 14
 | 10. (merged) | v1.1 | 0/0 | Complete | 2026-03-13 |
 | 11. Smart Context Actions | v1.1 | 1/1 | Complete | 2026-03-13 |
 | 12. Overlay Panel | v2.0 | 2/2 | Complete | 2026-03-13 |
-| 13. Theme System | 2/2 | Complete    | 2026-03-17 | - |
-| 14. Inline Editor | 1/1 | Complete    | 2026-03-19 | - |
+| 13. Theme System | v2.0 | 2/2 | Complete | 2026-03-17 |
+| 14. Inline Editor | v2.0 | 1/1 | Complete | 2026-03-19 |
+| 15. Tags | v2.1 | 0/2 | Not started | - |
+| 16. CLI Foundation | v2.1 | 0/2 | Not started | - |
+| 17. Tag CLI + Pub/Sub | v2.1 | 0/2 | Not started | - |
+| 18. Action Chains | v2.1 | 0/2 | Not started | - |
+| 19. QoL | v2.1 | 0/2 | Not started | - |
