@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Overlay UI & Theming
-status: planning
-stopped_at: Phase 14 context gathered
-last_updated: "2026-03-18T11:39:27.875Z"
-last_activity: 2026-03-13 — v2.0 roadmap created (phases 12-14)
+status: executing
+stopped_at: Completed 14-inline-editor/14-01-PLAN.md
+last_updated: "2026-03-19T00:00:00.000Z"
+last_activity: 2026-03-19 — Phase 14 Plan 01 complete (inline editor)
 progress:
   total_phases: 14
   completed_phases: 11
   total_plans: 20
-  completed_plans: 19
-  percent: 0
+  completed_plans: 20
+  percent: 95
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-13)
 
 **Core value:** Smart transforms — auto-cleaning and formatting clipboard content before paste
-**Current focus:** Phase 12 — Overlay Panel
+**Current focus:** Phase 14 — Inline Editor
 
 ## Current Position
 
-Phase: 12 of 14 (Overlay Panel)
-Plan: 0 of 2 in current phase
-Status: Ready to plan
-Last activity: 2026-03-13 — v2.0 roadmap created (phases 12-14)
+Phase: 14 of 14 (Inline Editor)
+Plan: 1 of 1 in current phase
+Status: Plan 01 complete
+Last activity: 2026-03-19 — Phase 14 Plan 01 complete (inline editor, all UAT passed)
 
-Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
+Progress: [█████████░] 95% (v2.0 milestone)
 
 ## Performance Metrics
 
@@ -58,6 +58,7 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 | Phase 12-overlay-panel P02 | 15min | 3 tasks | 6 files |
 | Phase 13-theme-system P01 | 2min | 2 tasks | 5 files |
 | Phase 13-theme-system P02 | 10min | 2 tasks | 5 files |
+| Phase 14-inline-editor P01 | ~90min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -86,6 +87,10 @@ See PROJECT.md Key Decisions table for full list with outcomes.
 - [Phase 13-theme-system]: NSViewRepresentable receives theme as explicit parameter — @Environment unreliable for NSView update cycles
 - [Phase 13-theme-system]: MiniOverlayMockup uses solid Rectangle fill (no VisualEffectView) — NSVisualEffectView doesn't render at reduced scale
 - [Phase 13-theme-system]: scaleEffect(0.5) + frame collapse pattern for mini mockup preview cards (Research Pitfall 2)
+- [Phase 14-inline-editor]: NSTextView used directly (not SwiftUI TextEditor) — unreliable focus in non-activating NSPanel
+- [Phase 14-inline-editor]: cancelEditHandler closure on OverlayPanel intercepts panel-level ESC before hide() — required for two-stage ESC when EditorTextView loses first-responder
+- [Phase 14-inline-editor]: Save path writes only to SwiftData modelContext, not NSPasteboard — prevents duplicate clipboard history entry
+- [Phase 14-inline-editor]: shouldRefocus parameter on OverlaySearchField lets search field reclaim focus after editor closes without racing EditorTextView's own focus claim
 
 ### Pending Todos
 
@@ -98,6 +103,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-18T11:39:27.871Z
-Stopped at: Phase 14 context gathered
-Resume file: .planning/phases/14-inline-editor/14-CONTEXT.md
+Last session: 2026-03-19T00:00:00.000Z
+Stopped at: Completed 14-inline-editor/14-01-PLAN.md
+Resume file: .planning/phases/14-inline-editor/14-01-SUMMARY.md

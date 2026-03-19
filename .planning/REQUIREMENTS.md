@@ -28,10 +28,10 @@ Requirements for v2.0 Overlay UI & Theming. Each maps to roadmap phases.
 
 ### Inline Editor
 
-- [ ] **EDIT-01**: User can click a clipboard item in the overlay to enter edit mode
-- [ ] **EDIT-02**: User can modify the text and save changes
-- [ ] **EDIT-03**: User can cancel editing with ESC (without dismissing overlay)
-- [ ] **EDIT-04**: Edits sync to the menu bar popup immediately (SwiftData round-trip)
+- [x] **EDIT-01**: User can click a clipboard item in the overlay to enter edit mode
+- [x] **EDIT-02**: User can modify the text and save changes
+- [x] **EDIT-03**: User can cancel editing with ESC (without dismissing overlay)
+- [x] **EDIT-04**: Edits sync to the menu bar popup immediately (SwiftData round-trip)
 
 ## Future Requirements
 
@@ -70,10 +70,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | THME-02 | Phase 13 | Complete |
 | THME-03 | Phase 13 | Complete |
 | THME-04 | Phase 13 | Complete |
-| EDIT-01 | Phase 14 | Pending |
-| EDIT-02 | Phase 14 | Pending |
-| EDIT-03 | Phase 14 | Pending |
-| EDIT-04 | Phase 14 | Pending |
+| EDIT-01 | Phase 14 | Complete |
+| EDIT-02 | Phase 14 | Complete |
+| EDIT-03 | Phase 14 | Complete |
+| EDIT-04 | Phase 14 | Complete |
 
 **Coverage:**
 - v2.0 requirements: 17 total
