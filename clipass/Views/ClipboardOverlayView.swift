@@ -13,6 +13,8 @@ struct ClipboardOverlayView: View {
     @State private var searchText = ""
     @State private var selectedID: ClipboardItem.ID?
     @State private var showContent = false
+    @State private var editingItemID: ClipboardItem.ID? = nil
+    @State private var editorContent: String = ""
 
     // MARK: - Theme Convenience
 
@@ -73,10 +75,23 @@ struct ClipboardOverlayView: View {
             if selectedID == nil {
                 selectedID = filteredItems.first?.id
             }
+            // Register ESC guard with the panel (Pitfall 7 fix):
+            // If EditorTextView loses first-responder and user presses ESC,
+            // OverlayPanel.cancelOperation fires. This handler intercepts it
+            // and cancels the editor instead of dismissing the overlay.
+            OverlayWindowController.shared.panel.cancelEditHandler = {
+                if self.editingItemID != nil {
+                    self.cancelEdit()
+                    return true
+                }
+                return false
+            }
         }
-        // Reset search when overlay is about to show, but preserve scroll position and selection.
+        // Reset search and edit state when overlay is about to show.
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("overlayWillShow"))) { _ in
             searchText = ""
+            editingItemID = nil
+            editorContent = ""
             showContent = true
         }
         // Auto-select first item whenever filtered list changes
@@ -94,19 +109,30 @@ struct ClipboardOverlayView: View {
             // Search field — custom NSViewRepresentable handles:
             //   • Auto-focus (requests first-responder immediately)
             //   • Arrow key interception (↑/↓ move list selection)
-            //   • ESC interception (dismisses overlay)
+            //   • ESC interception (dismisses overlay, or cancels editor if editing)
             //   • Return interception (pastes selected item)
+            // Arrow keys and Return are no-ops while the editor is open.
+            // ESC two-stage routing: cancel editor first, then dismiss overlay.
             OverlaySearchField(
                 text: $searchText,
                 placeholder: "Search clipboard...",
                 theme: theme,
-                onArrowUp: moveSelectionUp,
-                onArrowDown: moveSelectionDown,
-                onEscape: { OverlayWindowController.shared.hide() },
-                onReturn: pasteSelected
+                shouldRefocus: editingItemID == nil,
+                onArrowUp: editingItemID == nil ? moveSelectionUp : {},
+                onArrowDown: editingItemID == nil ? moveSelectionDown : {},
+                onEscape: {
+                    if editingItemID != nil {
+                        cancelEdit()
+                    } else {
+                        OverlayWindowController.shared.hide()
+                    }
+                },
+                onReturn: editingItemID == nil ? pasteSelected : {}
             )
             .frame(height: 44)
             .padding(.horizontal, 12)
+            .disabled(editingItemID != nil)
+            .opacity(editingItemID != nil ? 0.5 : 1.0)
             .background(
                 RoundedRectangle(cornerRadius: theme.itemCornerRadius)
                     .fill(theme.searchFieldBackground)
@@ -134,7 +160,12 @@ struct ClipboardOverlayView: View {
                                 onDoubleTap: {
                                     selectedID = item.id
                                     pasteSelected()
-                                }
+                                },
+                                onEdit: {
+                                    selectedID = item.id
+                                    enterEditMode(for: item)
+                                },
+                                isEditing: item.id == editingItemID
                             )
                             .id(item.id)
                         }
@@ -150,18 +181,37 @@ struct ClipboardOverlayView: View {
                 }
             }
 
-            themedDivider
+            // Bottom section: inline editor panel when editing, otherwise item count bar.
+            // withAnimation in enter/commit/cancel functions drives the slide transition.
+            if let editingID = editingItemID,
+               filteredItems.first(where: { $0.id == editingID }) != nil {
 
-            // Bottom bar — item count
-            HStack {
-                Spacer()
-                Text("\(filteredItems.count) item\(filteredItems.count == 1 ? "" : "s")")
-                    .font(.caption)
-                    .foregroundColor(theme.secondaryText)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
+                themedDivider
+
+                InlineEditorPanel(
+                    content: $editorContent,
+                    theme: theme,
+                    onSave: commitEdit,
+                    onCancel: cancelEdit
+                )
+                .frame(height: 160)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+
+            } else {
+                themedDivider
+
+                // Bottom bar — item count
+                HStack {
+                    Spacer()
+                    Text("\(filteredItems.count) item\(filteredItems.count == 1 ? "" : "s")")
+                        .font(.caption)
+                        .foregroundColor(theme.secondaryText)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                }
             }
         }
+        .animation(.easeOut(duration: 0.15), value: editingItemID)
     }
 
     // MARK: - Keyboard Actions
@@ -192,5 +242,36 @@ struct ClipboardOverlayView: View {
         guard let selectedID,
               let item = filteredItems.first(where: { $0.id == selectedID }) else { return }
         OverlayWindowController.shared.pasteAndHide(content: item.content)
+    }
+
+    // MARK: - Edit Actions
+
+    private func enterEditMode(for item: ClipboardItem) {
+        editorContent = item.content    // raw content, NOT DisplayFormatter output (Pitfall 6)
+        withAnimation(.easeOut(duration: 0.15)) {
+            editingItemID = item.id
+        }
+    }
+
+    private func commitEdit() {
+        guard let id = editingItemID,
+              let item = filteredItems.first(where: { $0.id == id }) else {
+            cancelEdit()
+            return
+        }
+        item.content = editorContent
+        try? modelContext.save()
+        withAnimation(.easeOut(duration: 0.15)) {
+            editingItemID = nil
+        }
+        // selectedID remains unchanged — edited item stays highlighted
+    }
+
+    private func cancelEdit() {
+        editorContent = ""
+        withAnimation(.easeOut(duration: 0.15)) {
+            editingItemID = nil
+        }
+        // selectedID unchanged — item remains selected after cancel
     }
 }

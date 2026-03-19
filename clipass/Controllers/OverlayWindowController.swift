@@ -61,10 +61,18 @@ final class OverlayPanel: NSPanel {
         NotificationCenter.default.post(name: .overlayDidResignKey, object: nil)
     }
 
+    /// Registered by ClipboardOverlayView to intercept ESC when the editor panel is open.
+    /// Returns true if an edit was cancelled (overlay stays open); false if no edit active.
+    var cancelEditHandler: (() -> Bool)? = nil
+
     /// Belt-and-suspenders ESC handler at the NSPanel level.
     /// Fires when OverlaySearchField.keyDown does not consume the ESC key event
-    /// (e.g., if the field loses first-responder before the key is processed).
+    /// (e.g., if the field loses first-responder before the key is processed — Pitfall 7).
+    /// Checks cancelEditHandler first so edit mode gets a chance to cancel before hide().
     override func cancelOperation(_ sender: Any?) {
+        if cancelEditHandler?() == true {
+            return  // ESC cancelled the editor; overlay stays open
+        }
         OverlayWindowController.shared.hide()
     }
 }
@@ -84,7 +92,8 @@ final class OverlayWindowController {
 
     static let shared = OverlayWindowController()
 
-    private let panel: OverlayPanel
+    // Internal (not private) so ClipboardOverlayView can register its cancelEditHandler
+    let panel: OverlayPanel
     private var previousApp: NSRunningApplication?
 
     private init() {

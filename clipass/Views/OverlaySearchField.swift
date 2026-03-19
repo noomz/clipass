@@ -19,6 +19,7 @@ struct OverlaySearchField: NSViewRepresentable {
     @Binding var text: String
     var placeholder: String = "Search clipboard..."
     var theme: Theme
+    var shouldRefocus: Bool = true  // when true, re-requests first-responder on next update
     var onArrowUp: () -> Void = {}
     var onArrowDown: () -> Void = {}
     var onEscape: () -> Void = {}
@@ -66,6 +67,19 @@ struct OverlaySearchField: NSViewRepresentable {
 
         // Re-apply theme colors on every update so theme changes take effect immediately.
         applyTheme(to: nsView)
+
+        // Restore focus to the search field when transitioning from editing back to normal mode.
+        // Only re-request first-responder when shouldRefocus is true and the field doesn't already hold it.
+        if shouldRefocus {
+            DispatchQueue.main.async {
+                guard let window = nsView.window else { return }
+                let isFirstResponder = window.firstResponder == nsView.currentEditor()
+                    || window.firstResponder == nsView
+                if !isFirstResponder {
+                    window.makeFirstResponder(nsView)
+                }
+            }
+        }
     }
 
     func makeCoordinator() -> Coordinator {
