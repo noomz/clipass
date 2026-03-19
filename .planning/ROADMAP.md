@@ -142,10 +142,10 @@ Plans:
   2. User can modify the text and save — the updated content appears in the overlay list and the menu bar popup without restarting
   3. User can cancel editing with ESC and the row reverts to display mode without dismissing the overlay
   4. Saving an edit does not create a duplicate entry in clipboard history
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 14-01: Inline editor (OverlayItemRow display/edit states, TextEditor buffer, commit/discard semantics, ESC conflict resolution, SwiftData round-trip, clipboard monitor suppression)
+- [ ] 14-01-PLAN.md — Inline editor (EditorTextView NSViewRepresentable, InlineEditorPanel, pencil icon on rows, edit state management, ESC conflict resolution, SwiftData round-trip)
 
 ## Progress
 
