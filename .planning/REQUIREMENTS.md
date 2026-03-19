@@ -3,9 +3,47 @@
 **Defined:** 2026-03-13
 **Core Value:** Smart transforms — auto-cleaning and formatting clipboard content before paste
 
-## v2.0 Requirements
+## v2.1 Requirements
 
-Requirements for v2.0 Overlay UI & Theming. Each maps to roadmap phases.
+Requirements for v2.1 Developer Power Tools. Each maps to roadmap phases.
+
+### Tags
+
+- [ ] **TAG-01**: User can add tags to clipboard items
+- [ ] **TAG-02**: User can remove tags from clipboard items
+- [ ] **TAG-03**: User can filter clipboard history by tag in overlay search (`tag:work`)
+- [ ] **TAG-04**: User can manage tags (rename, delete, set color) in Settings
+- [ ] **TAG-05**: Tags display as colored badges on overlay rows
+
+### CLI
+
+- [ ] **CLI-01**: User can list recent clipboard items from terminal (`clipass list`)
+- [ ] **CLI-02**: User can copy/paste via terminal (`clipass copy`, `clipass paste`)
+- [ ] **CLI-03**: User can delete/clear history from terminal
+- [ ] **CLI-04**: User can manage tags from terminal (`clipass tag add/remove/list`)
+- [ ] **CLI-05**: User can apply transforms from terminal (`clipass transform`)
+- [ ] **CLI-06**: User can search clipboard history from terminal (`clipass search`)
+- [ ] **CLI-07**: CLI outputs JSON with `--json` flag for scripting
+
+### Pub/Sub
+
+- [ ] **PUBSUB-01**: App broadcasts clipboard events over Unix socket
+- [ ] **PUBSUB-02**: User can stream events to stdout via `clipass listen`
+- [ ] **PUBSUB-03**: User can filter events by type, tag, or source app
+
+### Action Chains
+
+- [ ] **CHAIN-01**: User can create multi-step transform pipelines in Settings
+- [ ] **CHAIN-02**: User can apply chains to items via overlay context menu
+- [ ] **CHAIN-03**: User can run chains from terminal (`clipass chain`)
+
+### QoL
+
+- [ ] **QOL-01**: User can append to last copied item via hotkey (copy-append)
+- [ ] **QOL-02**: User can pause/resume clipboard monitoring
+- [ ] **QOL-03**: User can hide the menu bar icon
+
+## v2.0 Requirements (Shipped)
 
 ### Overlay Panel
 
@@ -41,15 +79,25 @@ Requirements for v2.0 Overlay UI & Theming. Each maps to roadmap phases.
 - **CTHM-02**: User can import/export theme files
 - **CTHM-03**: Per-theme typography and density controls
 
+### Visual Polish (v2.2)
+
+- **VIS-01**: Preview pane for full content before pasting
+- **VIS-02**: Collections/Pinboards built on tags
+- **VIS-03**: OCR text extraction from copied images
+- **VIS-04**: Drag & drop items from history into apps
+- **VIS-05**: Snippet templates with variables
+- **VIS-06**: Smart merge with transforms
+- **VIS-07**: Transform live preview
+
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Custom theme authoring (Theme Studio) | No reference implementation found; Raycast's is Pro-only. Defer to future milestone |
-| Rich text / Markdown rendering in editor | Conflicts with transform model; massive complexity increase |
-| Drag-to-reorder in overlay | Fragile in transient overlay; pin/unpin from v1.1 handles priority |
-| Overlay search persistence between invocations | Adds state management complexity for marginal UX gain |
-| Theme applied to menu bar popup | Menu bar popup retains existing style; overlay is the themed surface |
+| iCloud sync | Local-only by design, no cross-device sync |
+| Rich media (images, files) | Text-only, simplifies transforms |
+| Custom theme authoring (Theme Studio) | Defer to future milestone |
+| Rich text / Markdown rendering in editor | Conflicts with transform model |
+| Auto-triggered action chains | Security risk — chains are manual-only |
 
 ## Traceability
 
@@ -74,12 +122,33 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EDIT-02 | Phase 14 | Complete |
 | EDIT-03 | Phase 14 | Complete |
 | EDIT-04 | Phase 14 | Complete |
+| TAG-01 | Pending | Pending |
+| TAG-02 | Pending | Pending |
+| TAG-03 | Pending | Pending |
+| TAG-04 | Pending | Pending |
+| TAG-05 | Pending | Pending |
+| CLI-01 | Pending | Pending |
+| CLI-02 | Pending | Pending |
+| CLI-03 | Pending | Pending |
+| CLI-04 | Pending | Pending |
+| CLI-05 | Pending | Pending |
+| CLI-06 | Pending | Pending |
+| CLI-07 | Pending | Pending |
+| PUBSUB-01 | Pending | Pending |
+| PUBSUB-02 | Pending | Pending |
+| PUBSUB-03 | Pending | Pending |
+| CHAIN-01 | Pending | Pending |
+| CHAIN-02 | Pending | Pending |
+| CHAIN-03 | Pending | Pending |
+| QOL-01 | Pending | Pending |
+| QOL-02 | Pending | Pending |
+| QOL-03 | Pending | Pending |
 
 **Coverage:**
-- v2.0 requirements: 17 total
-- Mapped to phases: 17
-- Unmapped: 0
+- v2.1 requirements: 21 total
+- Mapped to phases: 0
+- Unmapped: 21
 
 ---
 *Requirements defined: 2026-03-13*
-*Last updated: 2026-03-13 — traceability filled after roadmap creation*
+*Last updated: 2026-03-19 — v2.1 requirements added*
