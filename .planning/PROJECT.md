@@ -8,14 +8,12 @@ A macOS menu bar app for intelligent clipboard management. Access via menu bar i
 
 Smart transforms — auto-cleaning and formatting clipboard content before paste. The intelligence layer that makes this more than just clipboard history.
 
-## Current Milestone: v2.0 Overlay UI & Theming
+## Current Milestone: v2.1 Polish & Competitive Features
 
-**Goal:** Add a Raycast-style overlay UI with theming support and an inline text editor for clipboard items.
+**Goal:** Add polish and competitive features to make clipass a compelling free alternative to paid clipboard managers.
 
 **Target features:**
-- Floating overlay panel summoned by global shortcut (separate from menu bar popup)
-- Raycast-style theme system with predefined and customizable themes
-- Click-to-edit inline text editor for clipboard items (overlay mode only)
+- TBD — researching competitors (Maccy, ClipBook, Paste, Pastebot) to identify gaps and opportunities
 
 ## Current State
 
@@ -62,10 +60,7 @@ Smart transforms — auto-cleaning and formatting clipboard content before paste
 
 ### Active
 
-- [ ] Overlay UI panel (Raycast/Spotlight-style floating window)
-- [ ] Separate global shortcut for overlay summon
-- [ ] Raycast-style theme system
-- [ ] Click-to-edit inline text editor (overlay only)
+- TBD — defining after competitive research
 
 ### Out of Scope
 
@@ -100,4 +95,4 @@ Common use case: copying from Terminal includes trailing whitespace that breaks 
 | ContextAction shell commands | Flexible user-defined actions via CLIPASS_CONTENT env var | Good |
 
 ---
-*Last updated: 2026-03-13 after v2.0 milestone started*
+*Last updated: 2026-03-19 after v2.1 milestone started*

@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.0
-milestone_name: Overlay UI & Theming
-status: completed
-stopped_at: Completed 14-inline-editor/14-01-PLAN.md
-last_updated: "2026-03-19T08:27:54.749Z"
-last_activity: 2026-03-19 — Phase 14 Plan 01 complete (inline editor, all UAT passed)
+milestone: v2.1
+milestone_name: Polish & Competitive Features
+status: active
+stopped_at: ""
+last_updated: "2026-03-19T12:30:00.000Z"
+last_activity: 2026-03-19 — Milestone v2.1 started
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 5
-  completed_plans: 5
-  percent: 95
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-13)
 
 **Core value:** Smart transforms — auto-cleaning and formatting clipboard content before paste
-**Current focus:** Phase 14 — Inline Editor
+**Current focus:** Defining requirements for v2.1
 
 ## Current Position
 
-Phase: 14 of 14 (Inline Editor)
-Plan: 1 of 1 in current phase
-Status: Plan 01 complete
-Last activity: 2026-03-19 — Phase 14 Plan 01 complete (inline editor, all UAT passed)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Researching competitors
+Last activity: 2026-03-19 — Milestone v2.1 started
 
-Progress: [█████████░] 95% (v2.0 milestone)
+Progress: [░░░░░░░░░░] 0% (v2.1 milestone)
 
 ## Performance Metrics
 
