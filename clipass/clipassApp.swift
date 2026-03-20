@@ -22,7 +22,7 @@ final class AppServices {
 
     private init() {
         do {
-            modelContainer = try ModelContainer(for: ClipboardItem.self, TransformRule.self, Hook.self, IgnoredApp.self, IgnoredPattern.self, RedactionPattern.self, ContextAction.self)
+            modelContainer = try ModelContainer(for: ClipboardItem.self, TransformRule.self, Hook.self, IgnoredApp.self, IgnoredPattern.self, RedactionPattern.self, ContextAction.self, Tag.self)
         } catch {
             // Migration failed — delete corrupt store and retry
             let storeURL = URL.applicationSupportDirectory.appending(path: "default.store")
@@ -31,7 +31,7 @@ final class AppServices {
                 try? FileManager.default.removeItem(at: url)
             }
             do {
-                modelContainer = try ModelContainer(for: ClipboardItem.self, TransformRule.self, Hook.self, IgnoredApp.self, IgnoredPattern.self, RedactionPattern.self, ContextAction.self)
+                modelContainer = try ModelContainer(for: ClipboardItem.self, TransformRule.self, Hook.self, IgnoredApp.self, IgnoredPattern.self, RedactionPattern.self, ContextAction.self, Tag.self)
             } catch {
                 fatalError("Failed to create ModelContainer even after resetting store: \(error)")
             }
