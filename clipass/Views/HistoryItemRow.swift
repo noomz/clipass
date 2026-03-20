@@ -9,8 +9,12 @@ struct HistoryItemRow: View {
     let onDelete: () -> Void
     let onTogglePin: () -> Void
 
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \Tag.name) private var allTags: [Tag]
+
     @AppStorage("previewMaxLength") private var previewMaxLength = 80
     @State private var isHovered = false
+    @State private var showNewTagAlert = false
 
     private var formattedPreview: String {
         DisplayFormatter.format(item.content, maxLength: previewMaxLength, patterns: redactionPatterns)
@@ -44,6 +48,7 @@ struct HistoryItemRow: View {
                             .font(.caption2)
                             .foregroundColor(.secondary)
                     }
+                    TagBadgesRow(tags: item.tags, isSelected: false, overflowColor: .secondary)
                     Spacer()
                     Text(relativeTimeString(from: item.timestamp))
                         .font(.caption2)
@@ -68,6 +73,21 @@ struct HistoryItemRow: View {
 
             Button(item.isPinned ? "Unpin" : "Pin") {
                 onTogglePin()
+            }
+
+            Divider()
+
+            // MARK: - Tag Assignment (flat buttons — MenuBarExtra submenu bug)
+            // NOTE: Actions are placed directly in the context menu (not in a
+            // submenu) because Button actions inside a Menu within .contextMenu
+            // do not fire in MenuBarExtra(.window) panels — a known SwiftUI bug.
+            ForEach(allTags) { tag in
+                Button(item.tags.contains(where: { $0.id == tag.id }) ? "\u{2713} \(tag.name)" : "    \(tag.name)") {
+                    toggleTag(tag, on: item)
+                }
+            }
+            Button("+ New Tag...") {
+                showNewTagAlert = true
             }
 
             Divider()
@@ -163,6 +183,46 @@ struct HistoryItemRow: View {
                 onDelete()
             }
         }
+        .onChange(of: showNewTagAlert) { _, newValue in
+            if newValue {
+                presentNewTagAlert()
+            }
+        }
+    }
+
+    // MARK: - Tag Actions
+
+    private func toggleTag(_ tag: Tag, on item: ClipboardItem) {
+        if let index = item.tags.firstIndex(where: { $0.id == tag.id }) {
+            item.tags.remove(at: index)
+        } else {
+            item.tags.append(tag)
+        }
+        try? modelContext.save()
+    }
+
+    private func presentNewTagAlert() {
+        let alert = NSAlert()
+        alert.messageText = "New Tag"
+        alert.informativeText = "Enter a name for the new tag."
+        alert.addButton(withTitle: "Create Tag")
+        alert.addButton(withTitle: "Don't Create")
+
+        let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
+        textField.placeholderString = "Tag name"
+        alert.accessoryView = textField
+
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            let name = textField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !name.isEmpty {
+                let newTag = Tag(name: name, colorHex: Tag.randomPresetColor())
+                modelContext.insert(newTag)
+                item.tags.append(newTag)
+                try? modelContext.save()
+            }
+        }
+        showNewTagAlert = false
     }
 
     // MARK: - Actions

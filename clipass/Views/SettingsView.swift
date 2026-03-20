@@ -40,6 +40,9 @@ struct SettingsView: View {
             Tab("Actions", systemImage: "cursorarrow.click.2") {
                 ContextActionsView()
             }
+            Tab("Tags", systemImage: "tag") {
+                TagsView()
+            }
             Tab("Appearance", systemImage: "paintbrush") {
                 AppearanceSettingsView()
             }
@@ -61,6 +64,8 @@ struct SettingsView: View {
                 .tabItem { Label("Display", systemImage: "text.alignleft") }
             ContextActionsView()
                 .tabItem { Label("Actions", systemImage: "cursorarrow.click.2") }
+            TagsView()
+                .tabItem { Label("Tags", systemImage: "tag") }
             AppearanceSettingsView()
                 .tabItem { Label("Appearance", systemImage: "paintbrush") }
         }

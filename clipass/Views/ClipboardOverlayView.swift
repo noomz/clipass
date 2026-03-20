@@ -23,13 +23,43 @@ struct ClipboardOverlayView: View {
     // MARK: - Filtered Items
 
     /// Items sorted with pinned first, then by timestamp descending, filtered by search text.
+    /// Supports `tag:name` prefix tokens: multiple tag tokens use OR logic,
+    /// combined with free text via AND (e.g. `tag:work hello` = tagged 'work' AND contains 'hello').
     private var filteredItems: [ClipboardItem] {
         let sorted = items.sorted { a, b in
             if a.isPinned != b.isPinned { return a.isPinned }
             return a.timestamp > b.timestamp
         }
-        if searchText.isEmpty { return sorted }
-        return sorted.filter { $0.content.localizedCaseInsensitiveContains(searchText) }
+        guard !searchText.isEmpty else { return sorted }
+
+        // Parse tag: tokens
+        let tokens = searchText.split(separator: " ").map(String.init)
+        let tagTokens = tokens
+            .filter { $0.lowercased().hasPrefix("tag:") }
+            .map { String($0.dropFirst(4)).lowercased() }
+        let textTokens = tokens
+            .filter { !$0.lowercased().hasPrefix("tag:") }
+            .joined(separator: " ")
+
+        return sorted.filter { item in
+            // Tag filter: any tag token matches (OR logic)
+            let tagMatch: Bool
+            if tagTokens.isEmpty {
+                tagMatch = true
+            } else {
+                tagMatch = tagTokens.contains { tagName in
+                    item.tags.contains { $0.name.lowercased() == tagName }
+                }
+            }
+            // Text filter: remaining text must match content
+            let textMatch: Bool
+            if textTokens.isEmpty {
+                textMatch = true
+            } else {
+                textMatch = item.content.localizedCaseInsensitiveContains(textTokens)
+            }
+            return tagMatch && textMatch
+        }
     }
 
     // MARK: - Themed Divider
