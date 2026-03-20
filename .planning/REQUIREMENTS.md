@@ -9,8 +9,8 @@ Requirements for v2.1 Developer Power Tools. Each maps to roadmap phases.
 
 ### Tags
 
-- [ ] **TAG-01**: User can add tags to clipboard items
-- [ ] **TAG-02**: User can remove tags from clipboard items
+- [x] **TAG-01**: User can add tags to clipboard items
+- [x] **TAG-02**: User can remove tags from clipboard items
 - [ ] **TAG-03**: User can filter clipboard history by tag in overlay search (`tag:work`)
 - [ ] **TAG-04**: User can manage tags (rename, delete, set color) in Settings
 - [ ] **TAG-05**: Tags display as colored badges on overlay rows
@@ -122,8 +122,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EDIT-02 | Phase 14 | Complete |
 | EDIT-03 | Phase 14 | Complete |
 | EDIT-04 | Phase 14 | Complete |
-| TAG-01 | Phase 15 | Pending |
-| TAG-02 | Phase 15 | Pending |
+| TAG-01 | Phase 15 | Complete |
+| TAG-02 | Phase 15 | Complete |
 | TAG-03 | Phase 15 | Pending |
 | TAG-04 | Phase 15 | Pending |
 | TAG-05 | Phase 15 | Pending |

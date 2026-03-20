@@ -2,16 +2,14 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Developer Power Tools
-status: planning
-stopped_at: Phase 15 UI-SPEC approved
-last_updated: "2026-03-20T07:28:04.377Z"
-last_activity: 2026-03-19 — v2.1 roadmap created, phases 15-19 defined
+status: unknown
+stopped_at: Completed 15-01-PLAN.md
+last_updated: "2026-03-20T08:14:18.673Z"
 progress:
   total_phases: 5
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 2
+  completed_plans: 1
 ---
 
 # Project State
@@ -21,16 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Smart transforms — auto-cleaning and formatting clipboard content before paste
-**Current focus:** Phase 15 — Tags (ready to plan)
+**Current focus:** Phase 15 — tags
 
 ## Current Position
 
-Phase: 15 of 19 (Tags)
-Plan: —
-Status: Ready to plan
-Last activity: 2026-03-19 — v2.1 roadmap created, phases 15-19 defined
-
-Progress: [░░░░░░░░░░] 0% (v2.1 milestone)
+Phase: 15 (tags) — EXECUTING
+Plan: 1 of 2
 
 ## Performance Metrics
 
@@ -47,6 +41,7 @@ Progress: [░░░░░░░░░░] 0% (v2.1 milestone)
 | 12. Overlay Panel | 2/2 | NSPanel, SwiftUI overlay view |
 | 13. Theme System | 2/2 | ThemeManager, Appearance settings |
 | 14. Inline Editor | 1/1 | NSTextView, ESC handling, SwiftData round-trip |
+| Phase 15-tags P01 | 7 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -63,6 +58,8 @@ Recent decisions relevant to v2.1:
 - [v2.1 arch]: All SwiftData operations dispatch to @MainActor from socket background thread
 - [v2.1 arch]: Action chains are manual-only — cannot be triggered by pub/sub (security)
 - [v2.1 arch]: Tags use SwiftData implicit many-to-many; additive schema migration (lightweight)
+- [Phase 15-tags]: @Relationship(inverse: \Tag.items) declared only on ClipboardItem.tags — SwiftData many-to-many requires inverse annotation on exactly one side
+- [Phase 15-tags]: Additive schema migration: adding Tag.self to ModelContainer with no VersionedSchema — SwiftData handles lightweight migration automatically
 
 ### Pending Todos
 
@@ -74,6 +71,6 @@ None at roadmap creation.
 
 ## Session Continuity
 
-Last session: 2026-03-20T07:28:04.374Z
-Stopped at: Phase 15 UI-SPEC approved
-Resume file: .planning/phases/15-tags/15-UI-SPEC.md
+Last session: 2026-03-20T08:14:18.670Z
+Stopped at: Completed 15-01-PLAN.md
+Resume file: None
