@@ -162,11 +162,11 @@ Plans:
   2. User can type `tag:work` in the overlay search field and see only items tagged `work`
   3. Tags display as colored badges on overlay rows
   4. User can rename, delete, and set a color for any tag in Settings > Tags
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 15-01: Tag data model (SwiftData Tag @Model, many-to-many with ClipboardItem, schema migration)
-- [ ] 15-02: Tag UI (overlay badges, editor add/remove, context menu "Tag as...", Settings Tags tab)
+- [ ] 15-01-PLAN.md — Tag data model (SwiftData Tag @Model, many-to-many with ClipboardItem, ModelContainer registration)
+- [ ] 15-02-PLAN.md — Tag UI (TagBadgeView, context menu tag assignment, overlay search tag: filter, Settings Tags tab)
 
 ### Phase 16: CLI Foundation
 **Goal**: Users can interact with clipboard history from the terminal via a `clipass` CLI binary
