@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Developer Power Tools
-status: active
-stopped_at: ""
-last_updated: "2026-03-19T12:30:00.000Z"
-last_activity: 2026-03-19 — v2.1 roadmap created (phases 15-19)
+status: planning
+stopped_at: Phase 15 context gathered
+last_updated: "2026-03-20T07:00:33.887Z"
+last_activity: 2026-03-19 — v2.1 roadmap created, phases 15-19 defined
 progress:
   total_phases: 5
   completed_phases: 0
-  total_plans: 10
+  total_plans: 0
   completed_plans: 0
   percent: 0
 ---
@@ -55,6 +55,7 @@ Progress: [░░░░░░░░░░] 0% (v2.1 milestone)
 See PROJECT.md Key Decisions table for full list.
 
 Recent decisions relevant to v2.1:
+
 - [v2.0 arch]: NSTextView used directly (not SwiftUI TextEditor) — unreliable focus in non-activating NSPanel
 - [v2.0 arch]: Overlay must be NSPanel subclass for non-activating floating behavior
 - [v2.1 arch]: CLI is a separate executableTarget (clipass-cli) sharing ClipassShared library with the app
@@ -73,6 +74,6 @@ None at roadmap creation.
 
 ## Session Continuity
 
-Last session: 2026-03-19
-Stopped at: v2.1 roadmap created — phases 15-19 defined, ready to plan Phase 15
-Resume file: None
+Last session: 2026-03-20T07:00:33.877Z
+Stopped at: Phase 15 context gathered
+Resume file: .planning/phases/15-tags/15-CONTEXT.md
