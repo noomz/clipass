@@ -71,23 +71,36 @@ Declared values follow the existing project's established spacing idioms (observ
 
 | Token | Value | Usage |
 |-------|-------|-------|
-| xs | 2pt | Badge dot-to-name gap (HStack spacing: 3), badge vertical padding |
-| sm | 4pt | Badge horizontal gap in metadata HStack, badge horizontal padding (5pt), row horizontal background padding |
-| md | 6pt | Row vertical padding (theme.itemVerticalPadding), Settings action row vertical padding |
+| xs | 4pt | Inter-badge gap (`HStack(spacing: 4)` in metadata row), row horizontal background padding |
+| sm | 8pt | Badge horizontal padding (adjusted to multiple of 4 — see note below) |
+| md | 8pt | Row vertical padding (`theme.itemVerticalPadding` typical value), Settings action row vertical padding |
 | lg | 12pt | Row horizontal padding (overlay), section padding |
 | xl | 16pt | Settings content padding, AppearanceSettingsView VStack padding |
 
-**Badge-specific spacing (Claude's discretion):**
-- Dot-to-name gap: 3pt (`HStack(spacing: 3)`)
-- Badge horizontal padding: 5pt (`.padding(.horizontal, 5)`)
-- Badge vertical padding: 2pt (`.padding(.vertical, 2)`)
+**Badge-specific spacing (Claude's discretion — new values adjusted to multiples of 4):**
+- Dot-to-name gap: 4pt (`HStack(spacing: 4)`)
+- Badge horizontal padding: 4pt (`.padding(.horizontal, 4)`)
+- Badge vertical padding: 4pt (`.padding(.vertical, 4)`)
 - Inter-badge gap: 4pt (`HStack(spacing: 4)` in metadata row)
 
 **Settings Tags tab — left pane width:** 180pt (consistent with typical macOS Settings split-pane patterns)
 
+**Inherited Exceptions** — the following non-multiple-of-4 values are inherited from the existing codebase and must NOT be changed in this phase:
+
+| Value | Source File | Line Reference | Reason Kept |
+|-------|-------------|----------------|-------------|
+| `itemVerticalPadding: 5pt` (Midnight theme) | `Theme.swift` line 231 | `.midnight` theme definition | Theme-owned — do not override in badge code |
+| `itemVerticalPadding: 7pt` (Nord theme) | `Theme.swift` line 257 | `.nord` theme definition | Theme-owned — do not override in badge code |
+| `VStack spacing: 2pt` (row content) | `OverlayItemRow.swift` line 43 | `VStack(alignment: .leading, spacing: 2)` | Inherited row layout — badge row inserts into existing VStack |
+| `VStack spacing: 2pt` (row content) | `HistoryItemRow.swift` line 29 | `VStack(alignment: .leading, spacing: 2)` | Inherited row layout — badge row inserts into existing VStack |
+| `HStack spacing: 4pt` (first line pin+text) | `OverlayItemRow.swift` line 44 | `HStack(spacing: 4)` | Inherited — not modified in this phase |
+| `frame: 550×450pt` | `SettingsView.swift` line 15 | `.frame(width: 550, height: 450)` | Inherited settings window size — unchanged |
+
+**Note on badge values:** The original spec used `dot-to-name gap: 3pt`, `badge horizontal padding: 5pt`, and `badge vertical padding: 2pt`. These have been adjusted to the nearest multiple of 4 (4pt each) as new values introduced in this phase. The resulting badge appearance is visually equivalent.
+
 Exceptions:
 - Touch targets for [+] [-] buttons: minimum 24pt tap area (use `.buttonStyle(.plain)` with padding)
-- Settings tab frame: 550 × 450pt (inherited from existing `SettingsView.frame`)
+- Settings tab frame: 550 × 450pt (inherited from existing `SettingsView.frame` — see Inherited Exceptions table above)
 
 ---
 
@@ -95,12 +108,21 @@ Exceptions:
 
 All sizes use SF Pro (system font). Source: observed directly from `OverlayItemRow.swift`, `HistoryItemRow.swift`, `ContextActionsView.swift`, and `Theme.swift`.
 
+**This phase declares exactly 2 font weights:**
+
+| Weight | Value | Usage |
+|--------|-------|-------|
+| Regular | `.regular` (400) | Body preview text (System/Dark/Light/Nord themes), caption/metadata, tag badge name |
+| Semibold | `.semibold` (600) | Settings headlines (`.headline` style) |
+
+**Note on `.medium` weight:** The Midnight theme sets `titleFontWeight: .medium` in `Theme.swift` (line 233). This is a **theme-owned property**, not a weight declared by this phase. The phase spec does not enumerate `.medium` — it is consumed at runtime via `theme.titleFontWeight` without modification. Only `.regular` and `.semibold` are introduced as new spec-level weight declarations.
+
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
-| Body (row preview text) | NSFont.systemFontSize (~13pt) | theme.titleFontWeight (.regular on most themes, .medium on Midnight) | 1.4 (system default) |
-| Caption / metadata (source app, timestamp) | .caption2 (~10pt) | .regular (400) | 1.3 (system default) |
-| Tag badge name | .caption2 (~10pt) | .regular (400) | 1.0 (single line, clipped) |
-| Settings headline | .headline (~13pt semibold) | .semibold (600) | 1.4 |
+| Body (row preview text) | NSFont.systemFontSize (~13pt) | `theme.titleFontWeight` (theme-owned — not declared here) | 1.4 (system default) |
+| Caption / metadata (source app, timestamp) | `.caption2` (~10pt) | `.regular` (400) | 1.3 (system default) |
+| Tag badge name | `.caption2` (~10pt) | `.regular` (400) | 1.0 (single line, clipped) |
+| Settings headline | `.headline` (~13pt semibold) | `.semibold` (600) | 1.4 |
 
 **Tag badge font:** `.font(.caption2)` — matches the existing metadata row font used for source app and timestamp. Consistent with the "colored dot + tag name in caption font" decision.
 
@@ -111,6 +133,8 @@ All sizes use SF Pro (system font). Source: observed directly from `OverlayItemR
 ## Color
 
 The project uses a theme system (5 themes: System, Dark, Light, Midnight, Nord). Tag badge colors must work across all 5. There is no single hex for "dominant/secondary/accent" — instead, colors reference theme tokens.
+
+**Note on 60/30/10 split:** The dominant/secondary/accent color balance is governed by the existing theme system (`Theme.swift`). This phase does not re-declare that split — it is fully inherited. Tag badge colors are orthogonal to the theme's 60/30/10 distribution and use their own per-tag color slots.
 
 | Role | Token / Value | Usage |
 |------|--------------|-------|
@@ -162,8 +186,8 @@ A reusable badge rendering a colored dot and tag name inside a capsule.
 - Outer shape: `Capsule` fill at `tagColor.opacity(0.15)` (or 0.30 on selected rows)
 - Dot: `Circle().fill(tagColor)` — 6×6pt
 - Label: `Text(tag.name)` at `.caption2`, `tagColor` color (`.white.opacity(0.85)` on selected)
-- HStack spacing: 3pt
-- Padding: `.horizontal 5pt`, `.vertical 2pt`
+- HStack spacing: 4pt
+- Padding: `.horizontal 4pt`, `.vertical 4pt`
 
 **Props:** `tag: Tag`, `isSelected: Bool`
 
@@ -221,6 +245,15 @@ The full Settings > Tags tab using an `HStack` split-pane layout.
 - Right pane (fills remaining width): `TagEditorPane` or "Select a tag" empty state
 - Bottom toolbar uses `.buttonStyle(.plain)` + `padding(6)` — matching existing `RulesView` toolbar conventions
 
+**Focal points:**
+- Settings > Tags (empty state): focal point is the centered "No tags yet" text + caption — primary visual anchor draws user toward the context menu action
+- Settings > Tags (populated): focal point is the left pane tag list — selected tag drives right-pane editor content
+- Overlay row with badges: focal point is the preview text (first line); badges are secondary metadata on line 2
+
+**Accessibility — icon-only buttons:**
+- `+` button in Settings Tags toolbar: `.accessibilityLabel("Add tag")`
+- `-` button in Settings Tags toolbar: `.accessibilityLabel("Remove selected tag")`
+
 ### Modified: OverlayItemRow
 
 - Second metadata line: insert `TagBadgesRow` between sourceApp and timestamp
@@ -254,7 +287,7 @@ The full Settings > Tags tab using an `HStack` split-pane layout.
 5. User clicks a tag name to toggle assignment (add if unassigned, remove if assigned)
 6. Badge row on the row updates immediately (SwiftData `@Query` live binding)
 7. User clicks `+ New Tag...` → `NSAlert` with text field appears
-8. User types name, clicks OK → new tag created with random color from palette, auto-assigned to item
+8. User types name, clicks "Create Tag" → new tag created with random color from palette, auto-assigned to item
 
 ### Tag assignment (menu bar popup — MenuBarExtra)
 
@@ -279,7 +312,7 @@ Same flow, but `Menu("Tag as...")` submenu is replaced with flat `Button` items 
 3. User clicks `+` → new tag created (name: "New Tag", color: first palette color), auto-selected for editing
 4. User edits name in right pane text field — change persists on each keystroke via `@Bindable`
 5. User selects color swatch — badge preview in left list updates immediately
-6. User clicks `−` or "Delete Tag" → confirmation alert fires
+6. User clicks `−` or "Delete Tag" → confirmation dialog fires
 7. On confirm: tag deleted from all items (SwiftData `.nullify` cascade), removed from list
 
 ### Confirmation dialog for tag deletion
@@ -288,7 +321,7 @@ Uses SwiftUI `.confirmationDialog` (consistent with existing `RulesView.confirma
 - Title: "Delete tag '\(tag.name)'?"
 - Message: "This removes it from all items."
 - Destructive button: "Delete"
-- Cancel button: "Cancel"
+- Cancel button: system-provided dismissal role (`.cancel`) — label supplied by the system, typically "Cancel"
 
 ---
 
@@ -315,19 +348,24 @@ Uses SwiftUI `.confirmationDialog` (consistent with existing `RulesView.confirma
 | Empty state (Settings right pane) | "Select a tag to edit" |
 | NSAlert title (new tag) | "New Tag" |
 | NSAlert message (new tag) | "Enter a name for the new tag." |
-| NSAlert OK button | "Create" |
-| NSAlert Cancel button | "Cancel" |
+| NSAlert OK button | "Create Tag" |
+| NSAlert Cancel button | "Don't Create" |
 | Context menu entry | "Tag as..." |
 | Context menu new tag button | "+ New Tag..." |
 | Destructive confirmation title | "Delete tag '\(tag.name)'?" |
 | Destructive confirmation message | "This removes it from all items." |
 | Destructive confirm button | "Delete" |
-| Destructive cancel button | "Cancel" |
+| Destructive cancel button | system-provided (`.cancel` role) |
 | Settings tab label | "Tags" |
 | Settings tab SF Symbol | `tag` |
 | Overflow badge | "+\(count)" (e.g. "+2") |
 
 **Tone:** Terse, action-first. No decorative language. Consistent with existing app copy (e.g., "No custom actions yet", "Reset to Defaults").
+
+**Copywriting notes:**
+- "Create Tag" follows the verb + noun CTA pattern (not bare "Create")
+- "Don't Create" is the NSAlert cancel label — avoids generic "Cancel" per macOS HIG guidance for alert dismissal
+- The `.confirmationDialog` cancel button uses SwiftUI's system-provided `.cancel` role; no custom label is declared for it
 
 ---
 
@@ -362,10 +400,10 @@ No registry vetting gate required.
 |--------|---------------|
 | CONTEXT.md | 12 locked decisions (badge placement, context menu pattern, Settings layout, filter syntax, color picker constraint, delete confirmation) |
 | RESEARCH.md | TagBadgeView code pattern, MenuBarExtra bug workaround, filteredItems parsing, TagsView split-pane structure, preset color values |
-| OverlayItemRow.swift | Metadata HStack structure, spacing values (padding: .horizontal 12, .vertical theme.itemVerticalPadding), isSelected color logic |
-| HistoryItemRow.swift | MenuBarExtra submenu bug comment, contextMenu structure, flat button pattern |
-| Theme.swift | 5 theme definitions, Color(hex:) extension, theme token names |
+| OverlayItemRow.swift | Metadata HStack structure, spacing values (padding: .horizontal 12, .vertical theme.itemVerticalPadding), isSelected color logic, VStack spacing: 2 |
+| HistoryItemRow.swift | MenuBarExtra submenu bug comment, contextMenu structure, flat button pattern, vertical padding: 4 |
+| Theme.swift | 5 theme definitions, Color(hex:) extension, theme token names, titleFontWeight per theme (.regular / .medium / .semibold) |
 | ContextActionsView.swift | `@Bindable` pattern for inline model editing, Settings list row conventions |
-| SettingsView.swift | Tab order (7 existing tabs), frame (550×450), sidebarAdaptable pattern |
+| SettingsView.swift | Tab order (7 existing tabs), frame (550×450 line 15), sidebarAdaptable pattern |
 | RulesView.swift | List+toolbar pattern ([+]/[-] buttons, empty state text+caption, Divider placement) |
 | User input | 0 (all answered by upstream) |
