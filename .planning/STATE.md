@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Developer Power Tools
 status: unknown
-stopped_at: Completed 15-01-PLAN.md
-last_updated: "2026-03-20T08:14:18.673Z"
+stopped_at: Completed 15-02 auto tasks (awaiting human verify checkpoint)
+last_updated: "2026-03-20T08:21:25.613Z"
 progress:
   total_phases: 5
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -42,6 +42,7 @@ Plan: 1 of 2
 | 13. Theme System | 2/2 | ThemeManager, Appearance settings |
 | 14. Inline Editor | 1/1 | NSTextView, ESC handling, SwiftData round-trip |
 | Phase 15-tags P01 | 7 | 2 tasks | 3 files |
+| Phase 15-tags P02 | 4 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -60,6 +61,8 @@ Recent decisions relevant to v2.1:
 - [v2.1 arch]: Tags use SwiftData implicit many-to-many; additive schema migration (lightweight)
 - [Phase 15-tags]: @Relationship(inverse: \Tag.items) declared only on ClipboardItem.tags — SwiftData many-to-many requires inverse annotation on exactly one side
 - [Phase 15-tags]: Additive schema migration: adding Tag.self to ModelContainer with no VersionedSchema — SwiftData handles lightweight migration automatically
+- [Phase 15-tags]: TagBadgesRow uses overflowColor: Color param instead of theme: Theme — enables reuse in MenuBarExtra context where ThemeManager unavailable
+- [Phase 15-tags]: Flat tag buttons in HistoryItemRow context menu — MenuBarExtra submenu actions silently fail (known SwiftUI bug)
 
 ### Pending Todos
 
@@ -71,6 +74,6 @@ None at roadmap creation.
 
 ## Session Continuity
 
-Last session: 2026-03-20T08:14:18.670Z
-Stopped at: Completed 15-01-PLAN.md
+Last session: 2026-03-20T08:21:25.605Z
+Stopped at: Completed 15-02 auto tasks (awaiting human verify checkpoint)
 Resume file: None
