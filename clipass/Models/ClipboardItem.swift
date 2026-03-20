@@ -9,6 +9,9 @@ class ClipboardItem {
     var timestamp: Date = Date()
     var isPinned: Bool = false
 
+    @Relationship(inverse: \Tag.items)
+    var tags: [Tag] = []
+
     init(id: UUID = UUID(), content: String, sourceApp: String? = nil, timestamp: Date = Date(), isPinned: Bool = false) {
         self.id = id
         self.content = content
