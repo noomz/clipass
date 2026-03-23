@@ -6,27 +6,29 @@ import AppKit
 /// Displays a truncated content preview, optional source app, and relative timestamp.
 /// Selection highlight is drawn inline (not via List) so it works when the search field
 /// holds first-responder status and the list itself is never focused.
+///
+/// Performance: accepts pre-computed display data (preview, tags) from parent.
+/// No @Query, no SwiftData relationship access, no expensive computation during render.
 struct OverlayItemRow: View {
 
     @Environment(ThemeManager.self) private var themeManager
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Tag.name) private var allTags: [Tag]
 
     let item: ClipboardItem
+    let previewText: String        // Pre-computed by parent
+    let tagInfos: [TagInfo]        // From TagLookup — no DB access
+    let allTags: [Tag]             // For context menu — fetched once by parent
     var isSelected: Bool = false
     var onTap: (() -> Void)? = nil
     var onDoubleTap: (() -> Void)? = nil
     var onEdit: (() -> Void)? = nil
-    var isEditing: Bool = false     // true when THIS row is currently being edited
+    var isEditing: Bool = false
+    var onTagChanged: (() -> Void)? = nil  // Notify parent to refresh TagLookup
 
     @State private var isHovered = false
     @State private var showNewTagAlert = false
 
     private var theme: Theme { themeManager.current }
-
-    private var previewText: String {
-        DisplayFormatter.format(item.content, maxLength: 100, patterns: [])
-    }
 
     private var relativeTime: String {
         let interval = Date().timeIntervalSince(item.timestamp)
@@ -75,7 +77,7 @@ struct OverlayItemRow: View {
                         .foregroundColor(isSelected ? Color.white.opacity(0.75) : theme.secondaryText)
                 }
                 TagBadgesRow(
-                    tags: item.tags,
+                    tags: tagInfos,
                     isSelected: isSelected,
                     overflowColor: isSelected ? .white.opacity(0.75) : theme.secondaryText
                 )
@@ -113,10 +115,11 @@ struct OverlayItemRow: View {
 
             Menu("Tag as...") {
                 ForEach(allTags) { tag in
+                    let isTagged = tagInfos.contains { $0.id == tag.id }
                     Button(action: { toggleTag(tag, on: item) }) {
                         HStack {
                             Text(tag.name)
-                            if item.tags.contains(where: { $0.id == tag.id }) {
+                            if isTagged {
                                 Spacer()
                                 Image(systemName: "checkmark")
                             }
@@ -138,7 +141,10 @@ struct OverlayItemRow: View {
         }
         .onChange(of: showNewTagAlert) { _, newValue in
             if newValue {
-                presentNewTagAlert()
+                // Delay to let context menu fully dismiss before presenting NSAlert
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    presentNewTagAlert()
+                }
             }
         }
     }
@@ -152,6 +158,7 @@ struct OverlayItemRow: View {
             item.tags.append(tag)
         }
         try? modelContext.save()
+        onTagChanged?()
     }
 
     private func presentNewTagAlert() {
@@ -173,6 +180,7 @@ struct OverlayItemRow: View {
                 modelContext.insert(newTag)
                 item.tags.append(newTag)
                 try? modelContext.save()
+                onTagChanged?()
             }
         }
         showNewTagAlert = false

@@ -102,8 +102,8 @@ struct TagsView: View {
     }
 
     private func deleteTag(_ tag: Tag) {
+        selectedTag = nil  // Clear selection BEFORE delete to prevent dangling binding
         modelContext.delete(tag)
-        selectedTag = nil
         try? modelContext.save()
     }
 }
@@ -128,9 +128,14 @@ struct TagListRow: View {
 // MARK: - TagEditorPane
 
 /// Right-pane editor for a selected tag: name field, color palette, delete button.
+/// Uses local state to avoid SwiftData crashes from live @Bindable bindings during saves.
 struct TagEditorPane: View {
-    @Bindable var tag: Tag
+    let tag: Tag
     let onDelete: () -> Void
+
+    @Environment(\.modelContext) private var modelContext
+    @State private var editName: String = ""
+    @State private var editColorHex: String = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -139,8 +144,12 @@ struct TagEditorPane: View {
                 Text("Name")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                TextField("Name", text: $tag.name)
+                TextField("Name", text: $editName)
                     .textFieldStyle(.roundedBorder)
+                    .onSubmit { save() }
+                    .onChange(of: editName) { _, newValue in
+                        save()
+                    }
             }
 
             // Color palette
@@ -148,7 +157,10 @@ struct TagEditorPane: View {
                 Text("Color")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                TagColorPalette(selectedHex: $tag.colorHex)
+                TagColorPalette(selectedHex: $editColorHex)
+                    .onChange(of: editColorHex) { _, newValue in
+                        save()
+                    }
             }
 
             Spacer()
@@ -159,6 +171,19 @@ struct TagEditorPane: View {
             }
         }
         .padding(16)
+        .onAppear { loadFromTag() }
+        .onChange(of: tag.id) { _, _ in loadFromTag() }
+    }
+
+    private func loadFromTag() {
+        editName = tag.name
+        editColorHex = tag.colorHex
+    }
+
+    private func save() {
+        tag.name = editName
+        tag.colorHex = editColorHex
+        try? modelContext.save()
     }
 }
 

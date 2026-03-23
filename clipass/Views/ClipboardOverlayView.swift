@@ -4,6 +4,12 @@ import SwiftData
 /// Root SwiftUI view for the overlay panel content.
 /// Hosts a search field, filtered clipboard list with keyboard navigation,
 /// vibrancy background, and smooth show/hide animation.
+///
+/// Performance strategy:
+/// - `sortedItems` cached as @State, rebuilt only when @Query items change
+/// - `displayItems` (filtered) cached as @State, rebuilt only on debounced search
+/// - `tagLookup` pre-computes all tag data from Tag side (few faults) not Item side
+/// - Row previews pre-computed once per filter cycle, not per-row per-render
 struct ClipboardOverlayView: View {
 
     @Environment(\.modelContext) private var modelContext
@@ -11,55 +17,92 @@ struct ClipboardOverlayView: View {
     @Query(sort: \ClipboardItem.timestamp, order: .reverse) private var items: [ClipboardItem]
 
     @State private var searchText = ""
+    @State private var searchDebounceTask: Task<Void, Never>?
     @State private var selectedID: ClipboardItem.ID?
     @State private var showContent = false
     @State private var editingItemID: ClipboardItem.ID? = nil
     @State private var editorContent: String = ""
 
+    // Cached data — rebuilt on specific triggers, not every render
+    @State private var sortedItems: [ClipboardItem] = []
+    @State private var displayItems: [ClipboardItem] = []
+    @State private var tagLookup: TagLookup = .empty
+    @State private var allTags: [Tag] = []
+    @State private var previewCache: [UUID: String] = [:]
+
     // MARK: - Theme Convenience
 
     private var theme: Theme { themeManager.current }
 
-    // MARK: - Filtered Items
+    // MARK: - Rebuild Helpers
 
-    /// Items sorted with pinned first, then by timestamp descending, filtered by search text.
-    /// Supports `tag:name` prefix tokens: multiple tag tokens use OR logic,
-    /// combined with free text via AND (e.g. `tag:work hello` = tagged 'work' AND contains 'hello').
-    private var filteredItems: [ClipboardItem] {
-        let sorted = items.sorted { a, b in
+    private func rebuildSorted() {
+        let t = Date()
+        sortedItems = items.sorted { a, b in
             if a.isPinned != b.isPinned { return a.isPinned }
             return a.timestamp > b.timestamp
         }
-        guard !searchText.isEmpty else { return sorted }
+        print("[PERF] rebuildSorted: \(Date().timeIntervalSince(t)*1000)ms, \(items.count) items")
+    }
 
-        // Parse tag: tokens
-        let tokens = searchText.split(separator: " ").map(String.init)
-        let tagTokens = tokens
+    private func rebuildDisplay(search: String) {
+        guard !search.isEmpty else {
+            displayItems = sortedItems
+            updateSelection()
+            return
+        }
+
+        let tokens = search.split(separator: " ").map(String.init)
+        let tagNames = tokens
             .filter { $0.lowercased().hasPrefix("tag:") }
-            .map { String($0.dropFirst(4)).lowercased() }
-        let textTokens = tokens
+            .compactMap { token -> String? in
+                let name = String(token.dropFirst(4)).lowercased()
+                return name.isEmpty ? nil : name
+            }
+        let freeText = tokens
             .filter { !$0.lowercased().hasPrefix("tag:") }
             .joined(separator: " ")
 
-        return sorted.filter { item in
-            // Tag filter: any tag token matches (OR logic)
+        displayItems = sortedItems.filter { item in
             let tagMatch: Bool
-            if tagTokens.isEmpty {
+            if tagNames.isEmpty {
                 tagMatch = true
             } else {
-                tagMatch = tagTokens.contains { tagName in
-                    item.tags.contains { $0.name.lowercased() == tagName }
+                // Use pre-computed tagLookup — zero DB access
+                tagMatch = tagNames.contains { name in
+                    tagLookup.itemIDsByTag[name]?.contains(item.id) == true
                 }
             }
-            // Text filter: remaining text must match content
             let textMatch: Bool
-            if textTokens.isEmpty {
+            if freeText.isEmpty {
                 textMatch = true
             } else {
-                textMatch = item.content.localizedCaseInsensitiveContains(textTokens)
+                textMatch = item.content.localizedCaseInsensitiveContains(freeText)
             }
             return tagMatch && textMatch
         }
+        updateSelection()
+    }
+
+    private func updateSelection() {
+        if selectedID == nil || !displayItems.contains(where: { $0.id == selectedID }) {
+            selectedID = displayItems.first?.id
+        }
+    }
+
+    private func refreshTagLookup() {
+        let t = Date()
+        tagLookup = TagLookup.build(from: modelContext)
+        let descriptor = FetchDescriptor<Tag>(sortBy: [SortDescriptor(\.name)])
+        allTags = (try? modelContext.fetch(descriptor)) ?? []
+        print("[PERF] refreshTagLookup: \(Date().timeIntervalSince(t)*1000)ms")
+    }
+
+    private func previewText(for item: ClipboardItem) -> String {
+        if let cached = previewCache[item.id] { return cached }
+        let text = DisplayFormatter.format(item.content, maxLength: 100, patterns: [])
+        previewCache[item.id] = text
+        return text
     }
 
     // MARK: - Themed Divider
@@ -82,6 +125,11 @@ struct ClipboardOverlayView: View {
     // MARK: - Body
 
     var body: some View {
+        let _ = {
+            let t = Date()
+            print("[PERF] body eval start, items=\(items.count), display=\(displayItems.count), search='\(searchText)'")
+            DispatchQueue.main.async { print("[PERF] body eval took \(Date().timeIntervalSince(t)*1000)ms") }
+        }()
         ZStack {
             // Theme-driven background — vibrancy, tinted vibrancy, or solid
             VisualEffectView(
@@ -102,13 +150,10 @@ struct ClipboardOverlayView: View {
         .frame(width: 640, height: 400)
         .onAppear {
             showContent = true
-            if selectedID == nil {
-                selectedID = filteredItems.first?.id
-            }
+            refreshTagLookup()
+            rebuildSorted()
+            rebuildDisplay(search: "")
             // Register ESC guard with the panel (Pitfall 7 fix):
-            // If EditorTextView loses first-responder and user presses ESC,
-            // OverlayPanel.cancelOperation fires. This handler intercepts it
-            // and cancels the editor instead of dismissing the overlay.
             OverlayWindowController.shared.panel.cancelEditHandler = {
                 if self.editingItemID != nil {
                     self.cancelEdit()
@@ -123,11 +168,28 @@ struct ClipboardOverlayView: View {
             editingItemID = nil
             editorContent = ""
             showContent = true
+            previewCache = [:]
+            refreshTagLookup()
+            rebuildSorted()
+            rebuildDisplay(search: "")
         }
-        // Auto-select first item whenever filtered list changes
-        .onChange(of: filteredItems) { _, newItems in
-            if selectedID == nil || !newItems.contains(where: { $0.id == selectedID }) {
-                selectedID = newItems.first?.id
+        // When @Query items change (new clip, delete, edit), rebuild sorted + display
+        .onChange(of: items) { _, _ in
+            previewCache = [:]
+            rebuildSorted()
+            rebuildDisplay(search: searchText)
+        }
+        // Debounce search — 150ms after last keystroke
+        .onChange(of: searchText) { _, newValue in
+            searchDebounceTask?.cancel()
+            if newValue.isEmpty {
+                rebuildDisplay(search: "")
+            } else {
+                searchDebounceTask = Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 150_000_000)
+                    guard !Task.isCancelled else { return }
+                    rebuildDisplay(search: newValue)
+                }
             }
         }
     }
@@ -136,13 +198,6 @@ struct ClipboardOverlayView: View {
 
     private var contentStack: some View {
         VStack(spacing: 0) {
-            // Search field — custom NSViewRepresentable handles:
-            //   • Auto-focus (requests first-responder immediately)
-            //   • Arrow key interception (↑/↓ move list selection)
-            //   • ESC interception (dismisses overlay, or cancels editor if editing)
-            //   • Return interception (pastes selected item)
-            // Arrow keys and Return are no-ops while the editor is open.
-            // ESC two-stage routing: cancel editor first, then dismiss overlay.
             OverlaySearchField(
                 text: $searchText,
                 placeholder: "Search clipboard...",
@@ -172,17 +227,15 @@ struct ClipboardOverlayView: View {
 
             themedDivider
 
-            // Clipboard list — selection and scroll position are driven entirely by selectedID.
-            // Arrow key events are handled by OverlaySearchField and update selectedID;
-            // the ScrollViewReader auto-scrolls to keep the selected row visible.
-            // Using ScrollView+ForEach (not List) so selection highlight renders correctly
-            // even when the search field — not the list — holds first-responder status.
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 0) {
-                        ForEach(filteredItems) { item in
+                        ForEach(displayItems) { item in
                             OverlayItemRow(
                                 item: item,
+                                previewText: previewText(for: item),
+                                tagInfos: tagLookup.tagsByItem[item.id] ?? [],
+                                allTags: allTags,
                                 isSelected: item.id == selectedID,
                                 onTap: {
                                     selectedID = item.id
@@ -195,7 +248,11 @@ struct ClipboardOverlayView: View {
                                     selectedID = item.id
                                     enterEditMode(for: item)
                                 },
-                                isEditing: item.id == editingItemID
+                                isEditing: item.id == editingItemID,
+                                onTagChanged: {
+                                    refreshTagLookup()
+                                    rebuildDisplay(search: searchText)
+                                }
                             )
                             .id(item.id)
                         }
@@ -212,9 +269,8 @@ struct ClipboardOverlayView: View {
             }
 
             // Bottom section: inline editor panel when editing, otherwise item count bar.
-            // withAnimation in enter/commit/cancel functions drives the slide transition.
             if let editingID = editingItemID,
-               filteredItems.first(where: { $0.id == editingID }) != nil {
+               displayItems.first(where: { $0.id == editingID }) != nil {
 
                 themedDivider
 
@@ -233,7 +289,7 @@ struct ClipboardOverlayView: View {
                 // Bottom bar — item count
                 HStack {
                     Spacer()
-                    Text("\(filteredItems.count) item\(filteredItems.count == 1 ? "" : "s")")
+                    Text("\(displayItems.count) item\(displayItems.count == 1 ? "" : "s")")
                         .font(.caption)
                         .foregroundColor(theme.secondaryText)
                         .padding(.horizontal, 12)
@@ -247,37 +303,37 @@ struct ClipboardOverlayView: View {
     // MARK: - Keyboard Actions
 
     private func moveSelectionDown() {
-        guard !filteredItems.isEmpty else { return }
+        guard !displayItems.isEmpty else { return }
         if let current = selectedID,
-           let idx = filteredItems.firstIndex(where: { $0.id == current }),
-           idx + 1 < filteredItems.count {
-            selectedID = filteredItems[idx + 1].id
+           let idx = displayItems.firstIndex(where: { $0.id == current }),
+           idx + 1 < displayItems.count {
+            selectedID = displayItems[idx + 1].id
         } else {
-            selectedID = filteredItems.first?.id
+            selectedID = displayItems.first?.id
         }
     }
 
     private func moveSelectionUp() {
-        guard !filteredItems.isEmpty else { return }
+        guard !displayItems.isEmpty else { return }
         if let current = selectedID,
-           let idx = filteredItems.firstIndex(where: { $0.id == current }),
+           let idx = displayItems.firstIndex(where: { $0.id == current }),
            idx > 0 {
-            selectedID = filteredItems[idx - 1].id
+            selectedID = displayItems[idx - 1].id
         } else {
-            selectedID = filteredItems.last?.id
+            selectedID = displayItems.last?.id
         }
     }
 
     private func pasteSelected() {
         guard let selectedID,
-              let item = filteredItems.first(where: { $0.id == selectedID }) else { return }
+              let item = displayItems.first(where: { $0.id == selectedID }) else { return }
         OverlayWindowController.shared.pasteAndHide(content: item.content)
     }
 
     // MARK: - Edit Actions
 
     private func enterEditMode(for item: ClipboardItem) {
-        editorContent = item.content    // raw content, NOT DisplayFormatter output (Pitfall 6)
+        editorContent = item.content
         withAnimation(.easeOut(duration: 0.15)) {
             editingItemID = item.id
         }
@@ -285,34 +341,26 @@ struct ClipboardOverlayView: View {
 
     private func commitEdit() {
         guard let id = editingItemID,
-              let item = filteredItems.first(where: { $0.id == id }) else {
+              let item = displayItems.first(where: { $0.id == id }) else {
             cancelEdit()
             return
         }
         item.content = editorContent
         try? modelContext.save()
-        // Remove editor view first, then clear content on next runloop
-        // to avoid updateNSView + gutter redraw during teardown
         withAnimation(.easeOut(duration: 0.15)) {
             editingItemID = nil
         }
         DispatchQueue.main.async {
             editorContent = ""
         }
-        // selectedID remains unchanged — edited item stays highlighted
     }
 
     private func cancelEdit() {
-        // Set editingItemID = nil first to remove the editor view,
-        // THEN clear editorContent. Clearing content while the view is still
-        // mounted triggers updateNSView + gutter redraw during teardown → crash.
         withAnimation(.easeOut(duration: 0.15)) {
             editingItemID = nil
         }
-        // Defer content clear to after the view is removed from the hierarchy
         DispatchQueue.main.async {
             editorContent = ""
         }
-        // selectedID unchanged — item remains selected after cancel
     }
 }

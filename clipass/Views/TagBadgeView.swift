@@ -1,8 +1,9 @@
 import SwiftUI
 
 /// Single tag badge: colored dot + tag name inside a Capsule background.
+/// Uses TagInfo (plain struct) — zero SwiftData access during rendering.
 struct TagBadgeView: View {
-    let tag: Tag
+    let tag: TagInfo
     let isSelected: Bool
 
     var body: some View {
@@ -24,24 +25,20 @@ struct TagBadgeView: View {
 }
 
 /// Horizontal strip of up to 3 tag badges with optional "+N" overflow indicator.
-/// Sorts tags alphabetically. Renders EmptyView when tags array is empty.
+/// Tags are pre-sorted by TagLookup — no sorting here.
 struct TagBadgesRow: View {
-    let tags: [Tag]
+    let tags: [TagInfo]
     let isSelected: Bool
     var overflowColor: Color = .secondary
-
-    private var sortedTags: [Tag] {
-        tags.sorted { $0.name < $1.name }
-    }
 
     var body: some View {
         if !tags.isEmpty {
             HStack(spacing: 4) {
-                ForEach(Array(sortedTags.prefix(3))) { tag in
+                ForEach(Array(tags.prefix(3))) { tag in
                     TagBadgeView(tag: tag, isSelected: isSelected)
                 }
-                if sortedTags.count > 3 {
-                    Text("+\(sortedTags.count - 3)")
+                if tags.count > 3 {
+                    Text("+\(tags.count - 3)")
                         .font(.caption2)
                         .foregroundColor(overflowColor)
                 }

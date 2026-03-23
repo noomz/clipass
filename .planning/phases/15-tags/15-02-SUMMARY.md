@@ -112,8 +112,30 @@ Each task was committed atomically:
 **Total deviations:** 1 auto-fixed (Rule 1 - adaptation for MenuBarExtra context)
 **Impact on plan:** Functionally equivalent result. Badge overflow color is still contextually correct in both overlay (theme-driven) and menu bar (system .secondary).
 
-## Issues Encountered
-None beyond the design adaptation noted above.
+## Known Issues
+
+### PERF-01: SwiftData tag relationship causes UI freeze (CRITICAL)
+- **Symptom:** Typing `tag:` in overlay search causes rainbow cursor / 1-5s freeze. Scrolling with tagged items is nearly unusable.
+- **Root cause:** Every access to `item.tags` triggers a SwiftData relationship fault (lazy DB query). With N items visible, that's N separate DB round-trips per render cycle. The `TagBadgesRow` component accesses `item.tags` on every row render, and `filteredItems` accesses it during tag filtering.
+- **Attempted fixes (insufficient):**
+  - 150ms debounce on search text — reduces keystroke frequency but doesn't fix the underlying fault storm
+  - Pre-computed tag ID set via single Tag fetch — avoids faulting during filtering, but row rendering still faults
+  - Moved `@Query` for tags from per-row to parent — helped menu bar but didn't fix overlay
+  - Removed expensive `.onChange(of: filteredItems)` array comparison
+- **Needs investigation:**
+  - Pre-fetch/batch-load all tag relationships eagerly on view appear (warm the cache)
+  - Cache tag display data as simple structs `[(name: String, colorHex: String)]` instead of live SwiftData objects
+  - Consider denormalizing: store tag names/colors as JSON string on ClipboardItem to avoid relationship entirely
+  - Profile with Instruments (SwiftData/Core Data template) to confirm exact bottleneck
+- **Affects:** Overlay search, menu bar popup scroll, any view rendering TagBadgesRow
+
+### UX-01: "New Tag" NSAlert requires 2nd click in overlay context menu
+- **Symptom:** First right-click > "Tag as..." > "+ New Tag..." doesn't always show the NSAlert. Needs a second click.
+- **Fix applied:** Added 150ms `DispatchQueue.main.asyncAfter` delay to let context menu dismiss before presenting NSAlert. May need further tuning.
+
+### DATA-01: Tag save sometimes crashes
+- **Symptom:** Editing tag name or color in Settings > Tags occasionally crashes.
+- **Fix applied:** Replaced `@Bindable var tag: Tag` with local `@State` copies and explicit save. Also reordered delete to nil selection before `modelContext.delete()`. Needs verification.
 
 ## User Setup Required
 None - no external service configuration required.

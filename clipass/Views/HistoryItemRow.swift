@@ -4,29 +4,18 @@ import AppKit
 
 struct HistoryItemRow: View {
     let item: ClipboardItem
+    let previewText: String            // Pre-computed by parent
+    let tagInfos: [TagInfo]            // From TagLookup — no DB access
+    let allTags: [Tag]                 // For context menu
     let redactionPatterns: [RedactionPattern]
     let customActions: [ContextAction]
     let onDelete: () -> Void
     let onTogglePin: () -> Void
+    var onTagChanged: (() -> Void)? = nil
 
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Tag.name) private var allTags: [Tag]
 
-    @AppStorage("previewMaxLength") private var previewMaxLength = 80
     @State private var isHovered = false
-    @State private var showNewTagAlert = false
-
-    private var formattedPreview: String {
-        DisplayFormatter.format(item.content, maxLength: previewMaxLength, patterns: redactionPatterns)
-    }
-
-    private var contentTypes: Set<ContentType> {
-        ContentAnalyzer.analyze(item.content)
-    }
-
-    private var applicableCustomActions: [ContextAction] {
-        customActions.filter { ContextActionEngine.matches(action: $0, content: item.content) }
-    }
 
     var body: some View {
         Button(action: copyToClipboard) {
@@ -37,7 +26,7 @@ struct HistoryItemRow: View {
                             .font(.caption2)
                             .foregroundColor(.orange)
                     }
-                    Text(formattedPreview)
+                    Text(previewText)
                         .lineLimit(1)
                         .font(.body)
                         .foregroundColor(.primary)
@@ -48,7 +37,7 @@ struct HistoryItemRow: View {
                             .font(.caption2)
                             .foregroundColor(.secondary)
                     }
-                    TagBadgesRow(tags: item.tags, isSelected: false, overflowColor: .secondary)
+                    TagBadgesRow(tags: tagInfos, isSelected: false, overflowColor: .secondary)
                     Spacer()
                     Text(relativeTimeString(from: item.timestamp))
                         .font(.caption2)
@@ -65,129 +54,138 @@ struct HistoryItemRow: View {
         .onHover { hovering in
             isHovered = hovering
         }
-        .contextMenu {
-            // MARK: - Primary Actions
-            Button("Copy") {
-                copyToClipboard()
+        .overlay {
+            // Invisible right-click target — builds NSMenu on demand, not during body eval
+            RightClickReceiver {
+                buildContextMenu()
             }
+        }
+    }
 
-            Button(item.isPinned ? "Unpin" : "Pin") {
-                onTogglePin()
-            }
+    // MARK: - NSMenu (built on-demand, not during SwiftUI body evaluation)
 
-            Divider()
+    private func buildContextMenu() -> NSMenu {
+        let menu = NSMenu()
 
-            // MARK: - Tag Assignment (flat buttons — MenuBarExtra submenu bug)
-            // NOTE: Actions are placed directly in the context menu (not in a
-            // submenu) because Button actions inside a Menu within .contextMenu
-            // do not fire in MenuBarExtra(.window) panels — a known SwiftUI bug.
-            ForEach(allTags) { tag in
-                Button(item.tags.contains(where: { $0.id == tag.id }) ? "\u{2713} \(tag.name)" : "    \(tag.name)") {
+        // Primary actions
+        menu.addItem(NSMenuItem(title: "Copy", action: nil, keyEquivalent: "").configured {
+            $0.representedObject = { copyToClipboard() } as () -> Void
+            $0.target = ContextMenuActionTarget.shared
+            $0.action = #selector(ContextMenuActionTarget.performAction(_:))
+        })
+
+        menu.addItem(NSMenuItem(title: item.isPinned ? "Unpin" : "Pin", action: nil, keyEquivalent: "").configured {
+            $0.representedObject = { [onTogglePin] in onTogglePin() } as () -> Void
+            $0.target = ContextMenuActionTarget.shared
+            $0.action = #selector(ContextMenuActionTarget.performAction(_:))
+        })
+
+        menu.addItem(.separator())
+
+        // Tag assignment (flat buttons — MenuBarExtra submenu bug)
+        for tag in allTags {
+            let isTagged = tagInfos.contains { $0.id == tag.id }
+            let title = isTagged ? "\u{2713} \(tag.name)" : "    \(tag.name)"
+            menu.addItem(NSMenuItem(title: title, action: nil, keyEquivalent: "").configured {
+                $0.representedObject = { [weak tag, weak item] in
+                    guard let tag, let item else { return }
                     toggleTag(tag, on: item)
-                }
+                } as () -> Void
+                $0.target = ContextMenuActionTarget.shared
+                $0.action = #selector(ContextMenuActionTarget.performAction(_:))
+            })
+        }
+        menu.addItem(NSMenuItem(title: "+ New Tag...", action: nil, keyEquivalent: "").configured {
+            $0.representedObject = { presentNewTagAlert() } as () -> Void
+            $0.target = ContextMenuActionTarget.shared
+            $0.action = #selector(ContextMenuActionTarget.performAction(_:))
+        })
+
+        menu.addItem(.separator())
+
+        // Copy As... submenu
+        let copyAsSubmenu = NSMenu()
+        let copyAsItem = NSMenuItem(title: "Copy As...", action: nil, keyEquivalent: "")
+        copyAsItem.submenu = copyAsSubmenu
+
+        addAction(to: copyAsSubmenu, title: "UPPERCASE") { copyTransformed(item.content.uppercased()) }
+        addAction(to: copyAsSubmenu, title: "lowercase") { copyTransformed(item.content.lowercased()) }
+        addAction(to: copyAsSubmenu, title: "Trimmed") { copyTransformed(item.content.trimmingCharacters(in: .whitespacesAndNewlines)) }
+        copyAsSubmenu.addItem(.separator())
+        addAction(to: copyAsSubmenu, title: "Base64 Encoded") {
+            if let data = item.content.data(using: .utf8) { copyTransformed(data.base64EncodedString()) }
+        }
+        addAction(to: copyAsSubmenu, title: "Base64 Decoded") {
+            if let data = Data(base64Encoded: item.content), let decoded = String(data: data, encoding: .utf8) { copyTransformed(decoded) }
+        }
+
+        // Content-aware transforms — only computed here, on right-click
+        let contentTypes = ContentAnalyzer.analyze(item.content)
+
+        if contentTypes.contains(.url) {
+            copyAsSubmenu.addItem(.separator())
+            addAction(to: copyAsSubmenu, title: "URL Encoded") {
+                if let encoded = item.content.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) { copyTransformed(encoded) }
             }
-            Button("+ New Tag...") {
-                showNewTagAlert = true
-            }
-
-            Divider()
-
-            // MARK: - Text Transform Actions
-            Menu("Copy As...") {
-                Button("UPPERCASE") {
-                    copyTransformed(item.content.uppercased())
-                }
-                Button("lowercase") {
-                    copyTransformed(item.content.lowercased())
-                }
-                Button("Trimmed") {
-                    copyTransformed(item.content.trimmingCharacters(in: .whitespacesAndNewlines))
-                }
-
-                Divider()
-
-                Button("Base64 Encoded") {
-                    if let data = item.content.data(using: .utf8) {
-                        copyTransformed(data.base64EncodedString())
-                    }
-                }
-                Button("Base64 Decoded") {
-                    if let data = Data(base64Encoded: item.content),
-                       let decoded = String(data: data, encoding: .utf8) {
-                        copyTransformed(decoded)
-                    }
-                }
-
-                // URL encode/decode — shown when URL-like content
-                if contentTypes.contains(.url) {
-                    Divider()
-                    Button("URL Encoded") {
-                        if let encoded = item.content.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
-                            copyTransformed(encoded)
-                        }
-                    }
-                    Button("URL Decoded") {
-                        if let decoded = item.content.removingPercentEncoding {
-                            copyTransformed(decoded)
-                        }
-                    }
-                }
-
-                // Pretty JSON — shown when JSON detected
-                if contentTypes.contains(.json) {
-                    Divider()
-                    Button("Formatted JSON") {
-                        if let pretty = ContentAnalyzer.prettyJSON(item.content) {
-                            copyTransformed(pretty)
-                        }
-                    }
-                }
-            }
-
-            // MARK: - Content-Aware Actions
-            if contentTypes.contains(.url) {
-                Button("Open URL") {
-                    openURL()
-                }
-            }
-
-            if contentTypes.contains(.email) {
-                Button("Send Email") {
-                    sendEmail()
-                }
-            }
-
-            if contentTypes.contains(.path) {
-                Button("Open in Finder") {
-                    openInFinder()
-                }
-            }
-
-            // MARK: - Custom Actions
-            // NOTE: Actions are placed directly in the context menu (not in a
-            // submenu) because Button actions inside a Menu within .contextMenu
-            // do not fire in MenuBarExtra(.window) panels — a known SwiftUI bug.
-            if !applicableCustomActions.isEmpty {
-                Divider()
-                ForEach(applicableCustomActions, id: \.id) { contextAction in
-                    Button(contextAction.name) {
-                        ContextActionEngine.execute(action: contextAction, content: item.content)
-                    }
-                }
-            }
-
-            Divider()
-
-            // MARK: - Destructive
-            Button("Delete", role: .destructive) {
-                onDelete()
+            addAction(to: copyAsSubmenu, title: "URL Decoded") {
+                if let decoded = item.content.removingPercentEncoding { copyTransformed(decoded) }
             }
         }
-        .onChange(of: showNewTagAlert) { _, newValue in
-            if newValue {
-                presentNewTagAlert()
+
+        if contentTypes.contains(.json) {
+            copyAsSubmenu.addItem(.separator())
+            addAction(to: copyAsSubmenu, title: "Formatted JSON") {
+                if let pretty = ContentAnalyzer.prettyJSON(item.content) { copyTransformed(pretty) }
             }
         }
+
+        menu.addItem(copyAsItem)
+
+        // Content-aware actions
+        if contentTypes.contains(.url) {
+            addAction(to: menu, title: "Open URL") { openURL() }
+        }
+        if contentTypes.contains(.email) {
+            addAction(to: menu, title: "Send Email") { sendEmail() }
+        }
+        if contentTypes.contains(.path) {
+            addAction(to: menu, title: "Open in Finder") { openInFinder() }
+        }
+
+        // Custom actions — filtered on demand
+        let applicable = customActions.filter { ContextActionEngine.matches(action: $0, content: item.content) }
+        if !applicable.isEmpty {
+            menu.addItem(.separator())
+            for contextAction in applicable {
+                addAction(to: menu, title: contextAction.name) {
+                    ContextActionEngine.execute(action: contextAction, content: item.content)
+                }
+            }
+        }
+
+        menu.addItem(.separator())
+
+        // Delete
+        let deleteItem = NSMenuItem(title: "Delete", action: nil, keyEquivalent: "")
+        deleteItem.representedObject = { [onDelete] in onDelete() } as () -> Void
+        deleteItem.target = ContextMenuActionTarget.shared
+        deleteItem.action = #selector(ContextMenuActionTarget.performAction(_:))
+        // Red text for destructive
+        deleteItem.attributedTitle = NSAttributedString(
+            string: "Delete",
+            attributes: [.foregroundColor: NSColor.systemRed]
+        )
+        menu.addItem(deleteItem)
+
+        return menu
+    }
+
+    private func addAction(to menu: NSMenu, title: String, action: @escaping () -> Void) {
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        item.representedObject = action as () -> Void
+        item.target = ContextMenuActionTarget.shared
+        item.action = #selector(ContextMenuActionTarget.performAction(_:))
+        menu.addItem(item)
     }
 
     // MARK: - Tag Actions
@@ -199,6 +197,7 @@ struct HistoryItemRow: View {
             item.tags.append(tag)
         }
         try? modelContext.save()
+        onTagChanged?()
     }
 
     private func presentNewTagAlert() {
@@ -220,9 +219,9 @@ struct HistoryItemRow: View {
                 modelContext.insert(newTag)
                 item.tags.append(newTag)
                 try? modelContext.save()
+                onTagChanged?()
             }
         }
-        showNewTagAlert = false
     }
 
     // MARK: - Actions
@@ -276,6 +275,65 @@ struct HistoryItemRow: View {
         } else {
             let days = Int(interval / 86400)
             return "\(days)d ago"
+        }
+    }
+}
+
+// MARK: - NSMenuItem builder helper
+
+private extension NSMenuItem {
+    func configured(_ configure: (NSMenuItem) -> Void) -> NSMenuItem {
+        configure(self)
+        return self
+    }
+}
+
+// MARK: - Singleton target for NSMenu action dispatch
+
+/// Bridges NSMenuItem actions to Swift closures stored in `representedObject`.
+/// Singleton so NSMenu can always find a valid target.
+final class ContextMenuActionTarget: NSObject {
+    static let shared = ContextMenuActionTarget()
+    private override init() { super.init() }
+
+    @objc func performAction(_ sender: NSMenuItem) {
+        if let action = sender.representedObject as? () -> Void {
+            action()
+        }
+    }
+}
+
+// MARK: - Right-click interceptor (NSView-backed, zero SwiftUI overhead)
+
+/// Transparent overlay that intercepts right-click events and shows an NSMenu.
+/// The menu is built lazily via the `menuBuilder` closure — nothing is constructed
+/// until the user actually right-clicks.
+struct RightClickReceiver: NSViewRepresentable {
+    let menuBuilder: () -> NSMenu
+
+    func makeNSView(context: Context) -> RightClickNSView {
+        let view = RightClickNSView()
+        view.menuBuilder = menuBuilder
+        return view
+    }
+
+    func updateNSView(_ nsView: RightClickNSView, context: Context) {
+        nsView.menuBuilder = menuBuilder
+    }
+
+    final class RightClickNSView: NSView {
+        var menuBuilder: (() -> NSMenu)?
+
+        override func rightMouseDown(with event: NSEvent) {
+            guard let menu = menuBuilder?() else { return }
+            NSMenu.popUpContextMenu(menu, with: event, for: self)
+        }
+
+        // Pass through left-clicks so the Button action still works
+        override func hitTest(_ point: NSPoint) -> NSView? {
+            // Only claim right-clicks
+            guard NSApp.currentEvent?.type == .rightMouseDown else { return nil }
+            return super.hitTest(point)
         }
     }
 }
