@@ -16,6 +16,11 @@ class ClipboardMonitor {
     // ScriptRunner NSLock guard).
     private let changeCountLock = NSLock()
 
+    // In-memory tracking of last saved content for duplicate detection.
+    // Using in-memory state instead of a SwiftData fetch because SwiftData's
+    // fetchLimit+sortBy combination is unreliable on macOS 14 (known Apple bug).
+    private var lastSavedContent: String?
+
     // Track whether the timer is currently suspended to avoid double-resume
     // crashes (matched from exmen's double-resume prevention pattern).
     private var isSuspended = false
@@ -57,6 +62,18 @@ class ClipboardMonitor {
 
     func setModelContext(_ context: ModelContext) {
         self.modelContext = context
+
+        // Seed lastSavedContent from the most recent history item so that
+        // cross-session duplicates are prevented. Without this, lastSavedContent
+        // starts as nil after every app launch, meaning any existing history item
+        // copied by the user would bypass the in-memory guard and create a duplicate.
+        var descriptor = FetchDescriptor<ClipboardItem>(
+            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+        )
+        descriptor.fetchLimit = 1
+        if let recent = try? context.fetch(descriptor), let mostRecent = recent.first {
+            lastSavedContent = mostRecent.content
+        }
     }
 
     func setTransformEngine(_ engine: TransformEngine) {
@@ -210,25 +227,26 @@ class ClipboardMonitor {
                 }
             }
 
-            // Skip duplicate: check if most recent item has same content
-            let descriptor = FetchDescriptor<ClipboardItem>(
-                sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+            // Deduplicate: if this content already exists in history,
+            // move it to the top by updating its timestamp instead of
+            // inserting a new row.
+            let searchContent = transformedContent
+            var existingDescriptor = FetchDescriptor<ClipboardItem>(
+                predicate: #Predicate { $0.content == searchContent }
             )
-            var fetchDescriptor = descriptor
-            fetchDescriptor.fetchLimit = 1
-            if let recentItems = try? context.fetch(fetchDescriptor),
-               let mostRecent = recentItems.first,
-               mostRecent.content == transformedContent {
-                return // Skip duplicate
+            existingDescriptor.fetchLimit = 1
+            if let existing = try? context.fetch(existingDescriptor).first {
+                existing.timestamp = Date()
+                existing.sourceApp = sourceApp
+            } else {
+                let item = ClipboardItem(
+                    content: transformedContent,
+                    sourceApp: sourceApp,
+                    timestamp: Date()
+                )
+                context.insert(item)
             }
-
-            let item = ClipboardItem(
-                content: transformedContent,
-                sourceApp: sourceApp,
-                timestamp: Date()
-            )
-
-            context.insert(item)
+            self.lastSavedContent = transformedContent
 
             // Prune old items if exceeding maxItems
             self.pruneOldItems(context: context)
