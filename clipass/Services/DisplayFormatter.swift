@@ -61,12 +61,10 @@ struct DisplayFormatter {
 
         let truncated = String(content.prefix(maxLength))
 
-        // Find last space within maxLength
-        if let lastSpaceIndex = truncated.lastIndex(of: " ") {
-            let endIndex = truncated.index(before: lastSpaceIndex)
-            if endIndex >= truncated.startIndex {
-                return String(truncated[...endIndex]) + "..."
-            }
+        // Find last space within maxLength and break at word boundary
+        if let lastSpaceIndex = truncated.lastIndex(of: " "),
+           lastSpaceIndex > truncated.startIndex {
+            return String(truncated[..<lastSpaceIndex]) + "..."
         }
 
         // No space found (single long word), truncate at maxLength
