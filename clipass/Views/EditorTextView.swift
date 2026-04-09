@@ -30,6 +30,12 @@ struct EditorTextView: NSViewRepresentable {
         textView.allowsUndo = true
         textView.font = NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
 
+        // Disable macOS automatic text substitutions — hyphens must stay as typed
+        textView.isAutomaticDashSubstitutionEnabled = false
+        textView.isAutomaticQuoteSubstitutionEnabled = false
+        textView.isAutomaticTextReplacementEnabled = false
+        textView.isAutomaticSpellingCorrectionEnabled = false
+
         // Vertical growth — NSTextView must be set up to expand vertically and track width
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
