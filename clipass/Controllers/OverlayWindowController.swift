@@ -92,6 +92,17 @@ final class OverlayWindowController {
 
     static let shared = OverlayWindowController()
 
+    private static let originDefaultsKey = "overlayPanelOrigin"
+    static let followsMouseScreenDefaultsKey = "overlayFollowsMouseScreen"
+
+    /// Missing key means follow (the Settings default). `bool(forKey:)` is false when unset.
+    static var followsMouseScreen: Bool {
+        if UserDefaults.standard.object(forKey: followsMouseScreenDefaultsKey) == nil {
+            return true
+        }
+        return UserDefaults.standard.bool(forKey: followsMouseScreenDefaultsKey)
+    }
+
     // Internal (not private) so ClipboardOverlayView can register its cancelEditHandler
     let panel: OverlayPanel
     private var previousApp: NSRunningApplication?
@@ -115,6 +126,29 @@ final class OverlayWindowController {
                 self?.restoreFocus()
             }
         }
+
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.didMoveNotification,
+            object: panel,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                // Skip while hidden — init and pre-show setFrame both fire didMove
+                // at (0, 0), which must not become the "saved" position.
+                guard self?.panel.isVisible == true else { return }
+                self?.persistOrigin()
+            }
+        }
+
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.didResizeNotification,
+            object: panel,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.clampToVisibleIfNeeded()
+            }
+        }
     }
 
     // MARK: Toggle / Show / Hide
@@ -133,18 +167,7 @@ final class OverlayWindowController {
         // but we must capture it now before any activation could occur.
         previousApp = NSWorkspace.shared.frontmostApplication
 
-        // Center the panel on the screen that contains the mouse cursor,
-        // placed slightly above vertical center (Spotlight/Raycast convention).
-        if let screen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) })
-            ?? NSScreen.main {
-            let screenFrame = screen.visibleFrame
-            let panelSize = panel.frame.size
-            let origin = NSPoint(
-                x: screenFrame.midX - panelSize.width / 2,
-                y: screenFrame.midY + screenFrame.height * 0.1
-            )
-            panel.setFrameOrigin(origin)
-        }
+        positionPanel()
 
         panel.shownAt = Date()
 
@@ -159,8 +182,57 @@ final class OverlayWindowController {
     }
 
     func hide() {
+        persistOrigin()
         panel.orderOut(nil)
         restoreFocus()
+    }
+
+    // MARK: Position
+
+    private func positionPanel() {
+        let size = panel.frame.size
+        let panelSize = CGSize(
+            width: size.width > 0 ? size.width : 640,
+            height: size.height > 0 ? size.height : 400
+        )
+        let screens = NSScreen.screens
+        let preferred = screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) })
+            ?? NSScreen.main
+        let frame = OverlayPositioning.frameForShow(
+            panelSize: panelSize,
+            savedOrigin: savedOrigin(),
+            visibleFrames: screens.map(\.visibleFrame),
+            preferredVisibleFrame: preferred?.visibleFrame ?? .zero,
+            followsMouseScreen: Self.followsMouseScreen
+        )
+        panel.setFrame(frame, display: false)
+    }
+
+    private func clampToVisibleIfNeeded() {
+        let current = panel.frame
+        let visibleFrames = NSScreen.screens.map(\.visibleFrame)
+        guard let visible = visibleFrames.first(where: { $0.intersects(current) })
+                ?? visibleFrames.first
+        else { return }
+        let clamped = OverlayPositioning.clamp(current, to: visible)
+        guard clamped.origin != current.origin else { return }
+        panel.setFrame(clamped, display: true)
+        persistOrigin()
+    }
+
+    private func persistOrigin() {
+        guard panel.isVisible else { return }
+        let origin = panel.frame.origin
+        guard origin != .zero else { return }
+        UserDefaults.standard.set(NSStringFromPoint(origin), forKey: Self.originDefaultsKey)
+    }
+
+    private func savedOrigin() -> NSPoint? {
+        guard let raw = UserDefaults.standard.string(forKey: Self.originDefaultsKey), !raw.isEmpty else {
+            return nil
+        }
+        let point = NSPointFromString(raw)
+        return point == .zero ? nil : point
     }
 
     // MARK: Focus Restoration

@@ -62,7 +62,8 @@ final class AppServices {
         startAutoCleanupTimer()
 
         KeyboardShortcuts.onKeyUp(for: .toggleClipboard) {
-            NSApp.activate(ignoringOtherApps: true)
+            // NSApp.activate() does not open MenuBarExtra in an LSUIElement app.
+            ClipboardPopupToggle.toggle()
         }
 
         KeyboardShortcuts.onKeyUp(for: .toggleOverlay) {

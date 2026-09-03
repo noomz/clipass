@@ -77,6 +77,7 @@ struct SettingsView: View {
 struct GeneralSettingsView: View {
     @AppStorage("maxHistoryItems") private var maxHistoryItems = 100
     @AppStorage("autoCleanupDays") private var autoCleanupDays = 0
+    @AppStorage("overlayFollowsMouseScreen") private var overlayFollowsMouseScreen = true
     @Environment(\.modelContext) private var modelContext
 
     var body: some View {
@@ -108,11 +109,14 @@ struct GeneralSettingsView: View {
                 Text("Hotkey")
             }
 
-            // OVRL-09: Overlay hotkey customization
+            // OVRL-09: Overlay hotkey and display
             Section {
                 KeyboardShortcuts.Recorder("Toggle Overlay:", name: .toggleOverlay)
+                Toggle("Follow mouse screen", isOn: $overlayFollowsMouseScreen)
             } header: {
-                Text("Overlay Hotkey")
+                Text("Overlay")
+            } footer: {
+                Text("When enabled, the overlay opens on the display under the pointer and keeps your last position on that display. When disabled, it stays on the last display you used.")
             }
 
             // BEHV-04: Auto-cleanup age

@@ -1,5 +1,26 @@
 # Release Notes
 
+## v1.4
+
+Overlay and hotkey fixes.
+
+### Fixes
+
+- **Toggle Clipboard hotkey opens the popup** — `NSApp.activate()` no longer presents `MenuBarExtra` on modern macOS for this LSUIElement app. The hotkey now clicks the status item, same as clicking the menu bar icon.
+- **Overlay stays on-screen** — the panel is centered (slightly above mid-screen) and clamped to the visible frame so it no longer sits behind the menu bar.
+- **First overlay summon is centered** — a leftover `{0, 0}` origin from panel init is ignored instead of pinning the window to the bottom-left.
+- **Overlay remembers position** — last origin is saved and restored across summons.
+
+### Changes
+
+- **Follow mouse screen** (Settings → General → Overlay, default on) — the overlay opens on the display under the pointer and keeps your last offset on that display. Turn it off to keep the overlay on the last display you used.
+
+### System Requirements
+
+- macOS 14 (Sonoma) or later
+
+---
+
 ## v1.0.0
 
 Initial public release.
