@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='utf-8'?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>clipass</title>
+        <link>https://github.com/noomz/clipass</link>
+        <description>clipass update feed</description>
+        <language>en</language>
+        <item>
+            <title>Version 1.5.0</title>
+            <pubDate>Fri, 13 Nov 2026 04:43:26 GMT</pubDate>
+            <sparkle:version>15</sparkle:version>
+            <sparkle:shortVersionString>1.5.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/noomz/clipass/releases/download/v1.5.0/clipass-v1.5.0-macos-arm64.dmg" sparkle:edSignature="6jE5f3PieSsFAw9Qiekz1v+vTFqAgd5kh82g1hkeeraD49IPYcfCZ3/NgR0p+zknccOEUwSk0gZgBr428JmBBQ==" length="2435520" type="application/octet-stream" />
+        </item>
+    </channel>
+</rss>
