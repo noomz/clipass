@@ -6,6 +6,14 @@
         <description>clipass update feed</description>
         <language>en</language>
         <item>
+            <title>Version 1.5.1</title>
+            <pubDate>Fri, 13 Nov 2026 05:02:45 GMT</pubDate>
+            <sparkle:version>16</sparkle:version>
+            <sparkle:shortVersionString>1.5.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/noomz/clipass/releases/download/v1.5.1/clipass-v1.5.1-macos-arm64.dmg" sparkle:edSignature="MdxduPdYU8AI5peBkIfCtHjB6MTnwTfYDWJI2gMx6jNxMy8sj0h5MOD3MKYjwrIvLBCJIk1Tove/0H5zCvTyCQ==" length="2461194" type="application/octet-stream" />
+        </item>
+        <item>
             <title>Version 1.5.0</title>
             <pubDate>Fri, 13 Nov 2026 04:43:26 GMT</pubDate>
             <sparkle:version>15</sparkle:version>
