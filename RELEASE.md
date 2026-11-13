@@ -1,5 +1,15 @@
 # Release Notes
 
+## v1.5.2
+
+Build pipeline update. No app changes.
+
+### Changes
+
+- **Release build** — releases now use SwiftPM's default build system and pass the Xcode SDK version to the linker. They no longer use the deprecated `--build-system native` option. The app still records the real SDK (27.2), so the menu bar popover stays translucent.
+
+---
+
 ## v1.5.1
 
 More overlay themes.
