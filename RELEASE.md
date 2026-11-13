@@ -1,5 +1,20 @@
 # Release Notes
 
+## v1.5.1
+
+More overlay themes.
+
+### Changes
+
+- **21 new overlay themes** from noomz-themes: Catppuccin (Latte, Frappé, Macchiato, Mocha), Everforest, Flexoki, Gruvbox (each light and dark), Kawakawa, Kanagawa Wave, Modus Operandi (and Tinted), Primer (light and dark), Rosé Pine (main, Moon, Dawn, Dawn Contrast), and Tokyo Night Day. Choose one in Settings → Appearance, which now shows themes in a grid.
+- Every imported theme keeps body text at 5.2:1 contrast or higher, dim text at 4.5:1, and placeholder text at 3:1.
+
+### Fixes
+
+- **Selected row text** — selected rows always used white text, which was hard to read on light themes. Each theme now sets its own selected-text color.
+
+---
+
 ## v1.5.0
 
 In-app updates and a native popover background.
