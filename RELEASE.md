@@ -1,5 +1,20 @@
 # Release Notes
 
+## v1.4.1
+
+Signed release and launch crash fix.
+
+### Fixes
+
+- **Crash on launch** — the overlay view read `OverlayWindowController.shared` from `onAppear` while that singleton was still initializing. On recent macOS, `NSHostingView` runs `onAppear` synchronously, so libdispatch trapped on a recursive lock. The view now receives its panel directly.
+- **Shortcut recorder crash** — the KeyboardShortcuts resource bundle is now included in the app, so opening the shortcut recorder in Settings no longer asserts.
+
+### Changes
+
+- **Signed and notarized** — the app is signed with a Developer ID, uses the hardened runtime, and is notarized and stapled by Apple, so Gatekeeper opens it without warnings. It ships as a DMG and as a zip.
+
+---
+
 ## v1.4
 
 Overlay and hotkey fixes.

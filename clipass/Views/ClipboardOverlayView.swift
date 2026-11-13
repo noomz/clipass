@@ -12,6 +12,10 @@ import SwiftData
 /// - Row previews pre-computed once per filter cycle, not per-row per-render
 struct ClipboardOverlayView: View {
 
+    /// The hosting panel, passed in so onAppear never reaches `OverlayWindowController.shared`
+    /// while that singleton is still initializing (NSHostingView can run onAppear synchronously).
+    unowned let panel: OverlayPanel
+
     @Environment(\.modelContext) private var modelContext
     @Environment(ThemeManager.self) private var themeManager
     @Query(sort: \ClipboardItem.timestamp, order: .reverse) private var items: [ClipboardItem]
@@ -154,7 +158,7 @@ struct ClipboardOverlayView: View {
             rebuildSorted()
             rebuildDisplay(search: "")
             // Register ESC guard with the panel (Pitfall 7 fix):
-            OverlayWindowController.shared.panel.cancelEditHandler = {
+            panel.cancelEditHandler = {
                 if self.editingItemID != nil {
                     self.cancelEdit()
                     return true

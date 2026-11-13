@@ -111,7 +111,7 @@ final class OverlayWindowController {
         panel = OverlayPanel()
 
         // Inject the real overlay UI with model context and theme from AppServices.
-        let overlayView = ClipboardOverlayView()
+        let overlayView = ClipboardOverlayView(panel: panel)
             .modelContext(AppServices.shared.modelContainer.mainContext)
             .environment(AppServices.shared.themeManager)
         panel.contentView = NSHostingView(rootView: overlayView)
