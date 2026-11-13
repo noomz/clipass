@@ -58,6 +58,23 @@ To run directly:
 swift run
 ```
 
+## Releasing
+
+Releases need the Developer ID identity, a `notarytool` keychain profile, and the Sparkle EdDSA key in the login keychain under account `clipass`. Never write the private key to disk.
+
+1. Set `CFBundleShortVersionString` and an integer `CFBundleVersion` in `clipass/Info.plist`. The build number must be higher than the last published one.
+2. Build, sign, and notarize. The script uses the native SwiftPM build backend and fails if the binary's SDK doesn't match the selected Xcode's SDK:
+   ```bash
+   NOTARY_PROFILE=<profile> scripts/build-release.sh 1.5.0
+   ```
+3. Create the GitHub release with the DMG and zip. Put `CFBundleVersion=<build>` in the notes.
+4. Sign the DMG for Sparkle, verify the uploaded bytes, and add the appcast item to a `gh-pages` checkout. Then commit and push that checkout:
+   ```bash
+   CLIPASS_PUBLISH=1 RELEASE_VERSION=1.5.0 RELEASE_BUILD=15 \
+     DMG=dist/clipass-v1.5.0-macos-arm64.dmg APPCAST_DIR=/path/to/gh-pages \
+     scripts/publish-release.sh
+   ```
+
 ## Usage
 
 1. Launch clipass - it appears as a clipboard icon in your menu bar

@@ -7,9 +7,9 @@
     <key>CFBundleIdentifier</key>
     <string>com.clipass.app</string>
     <key>CFBundleVersion</key>
-    <string>1.4.1</string>
+    <string>15</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.4.1</string>
+    <string>1.5.0</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleExecutable</key>
@@ -20,5 +20,13 @@
     <true/>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
+    <key>SUFeedURL</key>
+    <string>https://noomz.github.io/clipass/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>Mhy3j9FLTbCHrypleQgJBAenv2EsU7JrGwdrFalLgts=</string>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
+    <key>SUAllowsAutomaticUpdates</key>
+    <false/>
 </dict>
 </plist>

@@ -1,5 +1,19 @@
 # Release Notes
 
+## v1.5.0
+
+In-app updates and a native popover background.
+
+### Changes
+
+- **Check for Updates** — Settings → General → Updates has a "Check for Updates…" button and an automatic-check toggle, powered by Sparkle. Updates are EdDSA-signed and served from `https://noomz.github.io/clipass/appcast.xml`. Updates from 1.5.0 onward install from inside the app. 1.4.x users need to install 1.5.0 by hand once.
+
+### Fixes
+
+- **Opaque popover** — releases were built with SwiftPM's default build backend, which records the deployment target (macOS 14) as the SDK version. AppKit then applied old-SDK compatibility, drawing the menu bar popover opaque. Releases are now built with the native backend against the current Xcode SDK. The build script fails if the recorded SDK doesn't match.
+
+---
+
 ## v1.4.1
 
 Signed release and launch crash fix.

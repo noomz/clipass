@@ -25,13 +25,23 @@ plist_version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "
 xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" --output-format json --no-progress >/dev/null \
   || fail 'notary profile unavailable'
 
+[[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "${APP_NAME}/Info.plist")" =~ ^[1-9][0-9]*$ ]] \
+  || fail 'CFBundleVersion must be an integer build number (Sparkle compares it)'
+
 echo "==> Building ${APP_NAME} v${VERSION} (release)..."
-swift build -c release
+# The default swift-build backend records LC_BUILD_VERSION sdk = deployment target (14.0),
+# so AppKit applies old-SDK compatibility (opaque MenuBarExtra window). Native records the real SDK.
+swift build -c release --build-system native
+expected_sdk=$(xcrun --sdk macosx --show-sdk-version)
+built_sdk=$(otool -l ".build/release/${APP_NAME}" | awk '/LC_BUILD_VERSION/{f=1} f&&$1=="sdk"{print $2; exit}')
+echo "    Xcode $(xcodebuild -version | head -1 | cut -d' ' -f2), SDK ${expected_sdk}, binary sdk ${built_sdk}"
+[ "$built_sdk" = "$expected_sdk" ] || fail "binary links SDK $built_sdk, expected $expected_sdk"
 
 echo "==> Creating app bundle..."
 rm -rf dist
-mkdir -p "${APP}/Contents/MacOS" "${APP}/Contents/Resources"
+mkdir -p "${APP}/Contents/MacOS" "${APP}/Contents/Resources" "${APP}/Contents/Frameworks"
 cp ".build/release/${APP_NAME}" "${APP}/Contents/MacOS/"
+ditto ".build/release/Sparkle.framework" "${APP}/Contents/Frameworks/Sparkle.framework"
 cp "${APP_NAME}/Info.plist" "${APP}/Contents/"
 cp "${APP_NAME}/AppIcon.icns" "${APP}/Contents/Resources/"
 # SwiftPM resource bundles (KeyboardShortcuts' recorder asserts without its Bundle.module).
@@ -41,7 +51,19 @@ done
 echo -n "APPL????" > "${APP}/Contents/PkgInfo"
 
 echo "==> Signing with Developer ID + hardened runtime..."
-codesign --force --timestamp --options runtime --sign "$IDENTITY" "$APP"
+# Inside-out, per Sparkle's "Distributing outside the Mac App Store" signing order.
+sparkle="${APP}/Contents/Frameworks/Sparkle.framework"
+sign() { codesign --force --timestamp --options runtime --sign "$IDENTITY" "$@"; }
+sign "$sparkle/Versions/B/XPCServices/Installer.xpc"
+sign --preserve-metadata=entitlements "$sparkle/Versions/B/XPCServices/Downloader.xpc"
+sign "$sparkle/Versions/B/Autoupdate"
+sign "$sparkle/Versions/B/Updater.app"
+sign "$sparkle"
+for helper in "$sparkle/Versions/B/XPCServices/Installer.xpc" "$sparkle/Versions/B/XPCServices/Downloader.xpc" \
+              "$sparkle/Versions/B/Autoupdate" "$sparkle/Versions/B/Updater.app" "$sparkle"; do
+  [[ "$(codesign -dv --verbose=2 "$helper" 2>&1)" == *"TeamIdentifier=$TEAM"* ]] || fail "wrong signing team: $helper"
+done
+sign "$APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
 sig=$(codesign -dv --verbose=2 "$APP" 2>&1)
 [[ "$sig" == *"TeamIdentifier=$TEAM"* ]] || fail 'wrong signing team'

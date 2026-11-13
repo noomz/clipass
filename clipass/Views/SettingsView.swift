@@ -79,6 +79,7 @@ struct GeneralSettingsView: View {
     @AppStorage("autoCleanupDays") private var autoCleanupDays = 0
     @AppStorage("overlayFollowsMouseScreen") private var overlayFollowsMouseScreen = true
     @Environment(\.modelContext) private var modelContext
+    @ObservedObject private var updates = UpdateSettings.shared
 
     var body: some View {
         Form {
@@ -87,6 +88,24 @@ struct GeneralSettingsView: View {
                 LaunchAtLogin.Toggle()
             } header: {
                 Text("Startup")
+            }
+
+            Section {
+                if let controller = updates.controller {
+                    Toggle("Check for updates automatically", isOn: Binding(
+                        get: { controller.updater.automaticallyChecksForUpdates },
+                        set: { controller.updater.automaticallyChecksForUpdates = $0 }
+                    ))
+                    Button("Check for Updates…") { controller.checkForUpdates(nil) }
+                        .disabled(!controller.updater.canCheckForUpdates)
+                } else {
+                    Text("Updates are unavailable in this build.")
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("Updates")
+            } footer: {
+                Text("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev")")
             }
 
             // BEHV-02: Max history items

@@ -73,6 +73,9 @@ final class AppServices {
 
         // Force-initialize the singleton at launch so the panel is ready before first use.
         _ = OverlayWindowController.shared
+
+        // Start Sparkle at launch so scheduled update checks run without opening Settings.
+        _ = UpdateSettings.shared
     }
 
     private func startAutoCleanupTimer() {
