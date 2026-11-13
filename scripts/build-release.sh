@@ -29,10 +29,13 @@ xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" --output-format js
   || fail 'CFBundleVersion must be an integer build number (Sparkle compares it)'
 
 echo "==> Building ${APP_NAME} v${VERSION} (release)..."
-# The default swift-build backend records LC_BUILD_VERSION sdk = deployment target (14.0),
-# so AppKit applies old-SDK compatibility (opaque MenuBarExtra window). Native records the real SDK.
-swift build -c release --build-system native
+# SwiftPM's swift-build backend records LC_BUILD_VERSION sdk = deployment target (14.0),
+# so AppKit applies old-SDK compatibility (opaque MenuBarExtra window). Tell the linker
+# the real SDK version; the check below fails the release if it doesn't stick.
 expected_sdk=$(xcrun --sdk macosx --show-sdk-version)
+min_macos=$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "${APP_NAME}/Info.plist")
+swift build -c release \
+  -Xlinker -platform_version -Xlinker macos -Xlinker "$min_macos" -Xlinker "$expected_sdk"
 built_sdk=$(otool -l ".build/release/${APP_NAME}" | awk '/LC_BUILD_VERSION/{f=1} f&&$1=="sdk"{print $2; exit}')
 echo "    Xcode $(xcodebuild -version | head -1 | cut -d' ' -f2), SDK ${expected_sdk}, binary sdk ${built_sdk}"
 [ "$built_sdk" = "$expected_sdk" ] || fail "binary links SDK $built_sdk, expected $expected_sdk"

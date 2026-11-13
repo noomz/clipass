@@ -63,7 +63,7 @@ swift run
 Releases need the Developer ID identity, a `notarytool` keychain profile, and the Sparkle EdDSA key in the login keychain under account `clipass`. Never write the private key to disk.
 
 1. Set `CFBundleShortVersionString` and an integer `CFBundleVersion` in `clipass/Info.plist`. The build number must be higher than the last published one.
-2. Build, sign, and notarize. The script uses the native SwiftPM build backend and fails if the binary's SDK doesn't match the selected Xcode's SDK:
+2. Build, sign, and notarize. The script passes the selected Xcode SDK version to the linker (SwiftPM otherwise records the deployment target as the SDK, which makes the popover opaque) and fails if the binary's SDK doesn't match the selected Xcode's SDK:
    ```bash
    NOTARY_PROFILE=<profile> scripts/build-release.sh 1.5.0
    ```
