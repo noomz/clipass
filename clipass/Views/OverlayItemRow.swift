@@ -57,7 +57,7 @@ struct OverlayItemRow: View {
                 Text(previewText)
                     .lineLimit(1)
                     .font(.system(size: theme.bodyFontSize, weight: theme.titleFontWeight))
-                    .foregroundColor(isSelected ? .white : theme.primaryText)
+                    .foregroundColor(isSelected ? theme.selectedText : theme.primaryText)
 
                 Spacer()
 
@@ -65,7 +65,7 @@ struct OverlayItemRow: View {
                 Button(action: { onEdit?() }) {
                     Image(systemName: "pencil")
                         .font(.caption)
-                        .foregroundColor(isSelected ? .white.opacity(0.85) : theme.accentColor)
+                        .foregroundColor(isSelected ? theme.selectedText.opacity(0.85) : theme.accentColor)
                 }
                 .buttonStyle(.plain)
                 .opacity((isSelected || isHovered) && !isEditing ? 1 : 0)
@@ -74,17 +74,17 @@ struct OverlayItemRow: View {
                 if let sourceApp = item.sourceApp {
                     Text(sourceApp)
                         .font(.caption2)
-                        .foregroundColor(isSelected ? Color.white.opacity(0.75) : theme.secondaryText)
+                        .foregroundColor(isSelected ? theme.selectedText.opacity(0.75) : theme.secondaryText)
                 }
                 TagBadgesRow(
                     tags: tagInfos,
                     isSelected: isSelected,
-                    overflowColor: isSelected ? .white.opacity(0.75) : theme.secondaryText
+                    overflowColor: isSelected ? theme.selectedText.opacity(0.75) : theme.secondaryText
                 )
                 Spacer()
                 Text(relativeTime)
                     .font(.caption2)
-                    .foregroundColor(isSelected ? Color.white.opacity(0.75) : theme.secondaryText)
+                    .foregroundColor(isSelected ? theme.selectedText.opacity(0.75) : theme.secondaryText)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

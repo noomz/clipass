@@ -83,7 +83,7 @@ enum DividerStyle {
 
 // MARK: - ThemeID
 
-/// Stable identifiers for the 5 built-in themes.
+/// Stable theme identifiers: 5 built-in themes, then palettes imported from noomz-themes.
 /// Stored as rawValue String in @AppStorage for persistence.
 enum ThemeID: String, CaseIterable {
     case system    // Follows macOS system light/dark setting
@@ -91,6 +91,29 @@ enum ThemeID: String, CaseIterable {
     case light     // Fixed light, vibrancy-based
     case midnight  // Purple/violet tinted dark aesthetic
     case nord      // Official Nord palette, solid background
+    // BEGIN noomz-themes (generated)
+    case catppuccinFrappe = "catppuccin-frappe"
+    case catppuccinLatte = "catppuccin-latte"
+    case catppuccinMacchiato = "catppuccin-macchiato"
+    case catppuccinMocha = "catppuccin-mocha"
+    case everforestDark = "everforest-dark"
+    case everforestLight = "everforest-light"
+    case flexokiDark = "flexoki-dark"
+    case flexokiLight = "flexoki-light"
+    case gruvboxDark = "gruvbox-dark"
+    case gruvboxLight = "gruvbox-light"
+    case kanagawa = "kanagawa"
+    case kanagawaWave = "kanagawa-wave"
+    case modusOperandi = "modus-operandi"
+    case modusOperandiTinted = "modus-operandi-tinted"
+    case noomzRosePine = "noomz-rose-pine"
+    case noomzRosePineDawn = "noomz-rose-pine-dawn"
+    case noomzRosePineDawnContrast = "noomz-rose-pine-dawn-contrast"
+    case noomzRosePineMoon = "noomz-rose-pine-moon"
+    case primerDark = "primer-dark"
+    case primerLight = "primer-light"
+    case tokyoNightDay = "tokyo-night-day"
+    // END noomz-themes
 }
 
 // MARK: - Theme
@@ -105,6 +128,7 @@ struct Theme {
     // Colors
     let overlayBackground: Color          // Used for solid mode; blended in tinted vibrancy
     let itemBackground: Color             // Selection highlight fill color
+    let selectedText: Color               // Text drawn on itemBackground
     let primaryText: Color
     let secondaryText: Color
     let dividerColor: Color
@@ -132,8 +156,10 @@ struct Theme {
 // MARK: - Theme Definitions
 
 extension Theme {
-    /// All 5 built-in theme definitions. ThemeManager indexes into this dictionary.
-    static let themes: [ThemeID: Theme] = [
+    /// Every theme by ID. ThemeManager indexes into this dictionary.
+    static let themes: [ThemeID: Theme] = builtInThemes.merging(noomzThemes) { builtIn, _ in builtIn }
+
+    private static let builtInThemes: [ThemeID: Theme] = [
 
         // MARK: System
         // Follows macOS system appearance; vibrancy tinted with the user's accent color.
@@ -143,6 +169,7 @@ extension Theme {
             name: "System",
             overlayBackground: .clear,
             itemBackground: Color.accentColor,
+            selectedText: .white,
             primaryText: .primary,
             secondaryText: .secondary,
             dividerColor: Color.primary.opacity(0.15),
@@ -168,6 +195,7 @@ extension Theme {
             name: "Dark",
             overlayBackground: Color(hex: "#1e1e1e"),
             itemBackground: Color(hex: "#3a7bd5"),
+            selectedText: .white,
             primaryText: Color(hex: "#f0f0f0"),
             secondaryText: Color(hex: "#888888"),
             dividerColor: Color(hex: "#333333"),
@@ -193,6 +221,7 @@ extension Theme {
             name: "Light",
             overlayBackground: Color(hex: "#f5f5f5"),
             itemBackground: Color(hex: "#0066CC"),
+            selectedText: .white,
             primaryText: Color(hex: "#1a1a1a"),
             secondaryText: Color(hex: "#666666"),
             dividerColor: Color(hex: "#dedede"),
@@ -219,6 +248,7 @@ extension Theme {
             name: "Midnight",
             overlayBackground: Color(hex: "#1a0a2e"),
             itemBackground: Color(hex: "#7b4fd4"),
+            selectedText: .white,
             primaryText: Color(hex: "#e8e0f5"),
             secondaryText: Color(hex: "#8b7aaa"),
             dividerColor: Color(hex: "#2d1a52"),
@@ -245,6 +275,7 @@ extension Theme {
             name: "Nord",
             overlayBackground: .nordPolarNight0,
             itemBackground: .nordFrost9,
+            selectedText: .white,
             primaryText: .nordSnowStorm5,
             secondaryText: .nordPolarNight3,
             dividerColor: .nordPolarNight2,

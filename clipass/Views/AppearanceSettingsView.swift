@@ -67,11 +67,11 @@ struct MiniOverlayMockup: View {
                             Text(item.title)
                                 .lineLimit(1)
                                 .font(.system(size: theme.bodyFontSize, weight: theme.titleFontWeight))
-                                .foregroundColor(isSelected ? .white : theme.primaryText)
+                                .foregroundColor(isSelected ? theme.selectedText : theme.primaryText)
                             Text(item.subtitle)
                                 .lineLimit(1)
                                 .font(.system(size: theme.bodyFontSize * 0.75, weight: .regular))
-                                .foregroundColor(isSelected ? Color.white.opacity(0.75) : theme.secondaryText)
+                                .foregroundColor(isSelected ? theme.selectedText.opacity(0.75) : theme.secondaryText)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 12)
@@ -172,7 +172,7 @@ struct ThemePreviewCard: View {
 // MARK: - AppearanceSettingsView
 
 /// Settings tab for browsing and selecting themes.
-/// Shows one ThemePreviewCard per theme in a vertically scrollable list.
+/// Shows one ThemePreviewCard per theme in a scrollable adaptive grid.
 /// Selecting a card instantly applies the theme — no restart or Apply button required.
 struct AppearanceSettingsView: View {
 
@@ -180,7 +180,7 @@ struct AppearanceSettingsView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 16) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 264), spacing: 16)], spacing: 16) {
                 ForEach(ThemeID.allCases, id: \.self) { id in
                     if let theme = Theme.themes[id] {
                         ThemePreviewCard(
