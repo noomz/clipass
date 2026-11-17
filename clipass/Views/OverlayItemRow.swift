@@ -71,7 +71,7 @@ struct OverlayItemRow: View {
                 .opacity((isSelected || isHovered) && !isEditing ? 1 : 0)
             }
             HStack {
-                if let sourceApp = item.sourceApp {
+                if let sourceApp = item.sourceAppDisplayName {
                     Text(sourceApp)
                         .font(.caption2)
                         .foregroundColor(isSelected ? theme.selectedText.opacity(0.75) : theme.secondaryText)

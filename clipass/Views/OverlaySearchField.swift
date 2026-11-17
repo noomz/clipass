@@ -20,6 +20,7 @@ struct OverlaySearchField: NSViewRepresentable {
     var placeholder: String = "Search clipboard..."
     var theme: Theme
     var shouldRefocus: Bool = true  // when true, re-requests first-responder on next update
+    var onFocus: () -> Void = {}
     var onArrowUp: () -> Void = {}
     var onArrowDown: () -> Void = {}
     var onEscape: () -> Void = {}
@@ -54,6 +55,7 @@ struct OverlaySearchField: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: InterceptingTextField, context: Context) {
+        context.coordinator.parent = self
         // Sync text only when changed externally (avoid caret-jump during typing).
         if nsView.stringValue != text {
             nsView.stringValue = text
@@ -115,6 +117,10 @@ struct OverlaySearchField: NSViewRepresentable {
 
         init(_ parent: OverlaySearchField) {
             self.parent = parent
+        }
+
+        func controlTextDidBeginEditing(_ obj: Notification) {
+            parent.onFocus()
         }
 
         func controlTextDidChange(_ obj: Notification) {

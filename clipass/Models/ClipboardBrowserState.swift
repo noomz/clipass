@@ -9,17 +9,23 @@ struct ClipboardBrowserState: Equatable {
         let tagNames: [String]
     }
 
-    enum Tab: CaseIterable, Equatable {
+    enum Tab: CaseIterable, Hashable {
         case recent
         case pinned
     }
 
-    enum Focus: Equatable {
+    enum Focus: Hashable {
         case search
         case list
         case preview
         case editor
         case control
+    }
+
+    enum EmptyState: Equatable {
+        case history
+        case pinned
+        case noMatches
     }
 
     enum Presentation: Equatable {
@@ -83,6 +89,12 @@ struct ClipboardBrowserState: Equatable {
             let matchesText = freeText.isEmpty || item.content.localizedCaseInsensitiveContains(freeText)
             return matchesTab && matchesTags && matchesText
         }
+    }
+
+    var emptyState: EmptyState? {
+        guard visibleItems.isEmpty else { return nil }
+        if !query.isEmpty { return .noMatches }
+        return items.isEmpty ? .history : .pinned
     }
 
     var selectedItem: Item? {

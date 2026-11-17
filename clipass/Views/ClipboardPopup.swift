@@ -17,36 +17,12 @@ private func perfLog(_ msg: String) -> Bool {
     return true
 }
 
-// MARK: - Isolated search field
-// Owns its own @State for the raw text so keystrokes only re-render this tiny view.
-// Reports debounced value to parent via binding — parent body only re-evals on actual filter change.
-private struct PopupSearchField: View {
-    @Binding var debouncedText: String
-    @State private var rawText = ""
-    @State private var debounceTask: Task<Void, Never>?
-
-    var body: some View {
-        TextField("Search...", text: $rawText)
-            .textFieldStyle(.roundedBorder)
-            .padding(.horizontal)
-            .padding(.bottom, 8)
-            .onChange(of: rawText) { _, newValue in
-                debounceTask?.cancel()
-                if newValue.isEmpty {
-                    debouncedText = ""
-                } else {
-                    debounceTask = Task { @MainActor in
-                        try? await Task.sleep(nanoseconds: 150_000_000)
-                        guard !Task.isCancelled else { return }
-                        debouncedText = newValue
-                    }
-                }
-            }
-    }
-}
-
 struct ClipboardPopup: View {
     var monitor: ClipboardMonitor
+    var onCopy: (String) -> Void = { content in
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(content, forType: .string)
+    }
     @Environment(\.modelContext) private var modelContext
     @Environment(\.openWindow) private var openWindow
     @Query(sort: \ClipboardItem.timestamp, order: .reverse)
@@ -56,33 +32,39 @@ struct ClipboardPopup: View {
     @Query private var redactionPatterns: [RedactionPattern]
     @Query(sort: \ContextAction.order) private var customActions: [ContextAction]
     @Query(sort: \Tag.name) private var allTags: [Tag]
-    @State private var searchText = ""  // Only updated by debounced output
-
-    // Cached data — rebuilt on specific triggers
-    @State private var sortedItems: [ClipboardItem] = []
-    @State private var displayItems: [ClipboardItem] = []
+    @State private var browser = ClipboardBrowserState()
+    @FocusState private var focusedArea: ClipboardBrowserState.Focus?
+    @State private var revealRequest = UUID()
     @State private var tagLookup: TagLookup = .empty
     @State private var previewCache: [UUID: String] = [:]
 
     @AppStorage("previewMaxLength") private var previewMaxLength = 80
 
-    private func rebuildSorted() {
-        sortedItems = items.sorted { a, b in
-            if a.isPinned != b.isPinned { return a.isPinned }
-            return a.timestamp > b.timestamp
-        }
+    private var browserItems: [ClipboardBrowserState.Item] {
+        items.map { ClipboardBrowserState.Item($0, tagLookup: tagLookup) }
     }
 
-    private func rebuildDisplay(search: String) {
-        guard !search.isEmpty else {
-            displayItems = sortedItems
-            return
-        }
-        displayItems = sortedItems.filter { $0.content.localizedCaseInsensitiveContains(search) }
+    private var displayItems: [ClipboardItem] {
+        let byID = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
+        return browser.visibleItems.compactMap { byID[$0.id] }
+    }
+
+    private var searchText: Binding<String> {
+        Binding(get: { browser.query }, set: {
+            browser.setQuery($0)
+            revealRequest = UUID()
+        })
+    }
+
+    private func openTab(_ tab: ClipboardBrowserState.Tab) {
+        browser.openTab(tab)
+        focusedArea = browser.focus
+        revealRequest = UUID()
     }
 
     private func refreshTagLookup() {
         tagLookup = TagLookup.build(from: modelContext)
+        browser.replaceItems(browserItems)
     }
 
     private func previewText(for item: ClipboardItem) -> String {
@@ -93,7 +75,7 @@ struct ClipboardPopup: View {
     }
 
     var body: some View {
-        let _ = perfLog("body eval: items=\(items.count), display=\(displayItems.count), search='\(searchText)'")
+        let _ = perfLog("body eval: items=\(items.count), display=\(displayItems.count), search='\(browser.query)'")
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("Clipboard History")
@@ -130,57 +112,67 @@ struct ClipboardPopup: View {
             }
             .padding()
 
-            PopupSearchField(debouncedText: $searchText)
+            ClipboardBrowserTabs(tab: browser.tab, onSelect: openTab)
+
+            TextField("Search text or tag:work", text: searchText)
+                .textFieldStyle(.roundedBorder)
+                .focused($focusedArea, equals: .search)
+                .padding(.horizontal)
+                .padding(.bottom, 8)
 
             Divider()
 
-            if items.isEmpty {
-                VStack {
-                    Spacer()
-                    Text("No items yet")
-                        .foregroundColor(.secondary)
-                    Text("Copy some text to get started")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Spacer()
+            if let emptyState = browser.emptyState {
+                ClipboardBrowserEmptyView(state: emptyState) {
+                    searchText.wrappedValue = ""
+                    focusedArea = .search
                 }
-                .frame(maxWidth: .infinity)
-            } else if displayItems.isEmpty && !searchText.isEmpty {
-                VStack {
-                    Spacer()
-                    Text("No results")
-                        .foregroundColor(.secondary)
-                    Text("Try a different search term")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                }
-                .frame(maxWidth: .infinity)
             } else {
-                List {
-                    ForEach(displayItems) { item in
-                        HistoryItemRow(
-                            item: item,
-                            previewText: previewText(for: item),
-                            tagInfos: tagLookup.tagsByItem[item.id] ?? [],
-                            allTags: allTags,
-                            redactionPatterns: redactionPatterns,
-                            customActions: customActions,
-                            onDelete: { deleteItem(item) },
-                            onTogglePin: { togglePin(item) },
-                            onTagChanged: {
-                                refreshTagLookup()
-                            }
-                        )
-                        .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 2, trailing: 0))
+                ScrollViewReader { proxy in
+                    List {
+                        ForEach(displayItems) { item in
+                            HistoryItemRow(
+                                item: item,
+                                previewText: previewText(for: item),
+                                tagInfos: tagLookup.tagsByItem[item.id] ?? [],
+                                allTags: allTags,
+                                redactionPatterns: redactionPatterns,
+                                customActions: customActions,
+                                onDelete: { deleteItem(item) },
+                                onTogglePin: { togglePin(item) },
+                                onTagChanged: refreshTagLookup,
+                                isSelected: browser.selectedID == item.id,
+                                onSelect: {
+                                    browser.selectItem(item.id)
+                                    browser.setFocus(.list)
+                                    focusedArea = .list
+                                }
+                            )
+                            .id(item.id)
+                            .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 2, trailing: 0))
+                        }
+                    }
+                    .listStyle(.plain)
+                    .focused($focusedArea, equals: .list)
+                    .onAppear {
+                        if let id = browser.selectedID { proxy.scrollTo(id) }
+                    }
+                    .onChange(of: revealRequest) { _, _ in
+                        if let id = browser.selectedID {
+                            proxy.scrollTo(id)
+                        }
                     }
                 }
-                .listStyle(.plain)
             }
 
             Divider()
 
             HStack {
+                Button("Copy") {
+                    if let item = browser.selectedItem { onCopy(item.content) }
+                }
+                .disabled(browser.selectedItem == nil)
+
                 if !items.isEmpty {
                     Button("Clear All") {
                         clearAllItems()
@@ -207,19 +199,13 @@ struct ClipboardPopup: View {
         .frame(width: 300, height: 350)
         .onAppear {
             refreshTagLookup()
-            rebuildSorted()
-            rebuildDisplay(search: "")
         }
-        .onChange(of: items) { _, _ in
-            perfLog("onChange(items) fired")
+        .onChange(of: browserItems) { _, snapshots in
             previewCache = [:]
-            rebuildSorted()
-            rebuildDisplay(search: searchText)
+            browser.replaceItems(snapshots)
         }
-        // Only fires when debounced value arrives — not on every keystroke
-        .onChange(of: searchText) { _, newValue in
-            perfLog("onChange(searchText) = '\(newValue)'")
-            rebuildDisplay(search: newValue)
+        .onChange(of: focusedArea) { _, focus in
+            if let focus { browser.setFocus(focus) }
         }
     }
 

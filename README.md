@@ -58,6 +58,18 @@ To run directly:
 swift run
 ```
 
+## Testing
+
+Run behavior tests with `swift test`. To exercise both native clipboard views, run:
+
+```bash
+bash scripts/verify-native-browser.sh
+```
+
+The native check needs a logged-in macOS desktop. It builds a disposable copy under `/tmp`, uses in-memory history, and does not start capture or write to the clipboard. It checks tabs, shared search, empty states, focus retention, chronological row placement, and revealing search results after scrolling. It also checks that Return still copies from the overlay list through a test callback.
+
+The workspace includes light and dark renders of the shared tabs. These renders do not prove native window compositing. To save window screenshots, set `CLIPASS_NATIVE_SCREENSHOTS=1`. Screen Recording permission is required. The script prints its workspace path. These checks host the production views in native windows. They do not replace the menu-bar lifecycle and global-shortcut acceptance checks in `SPEC.md`.
+
 ## Releasing
 
 Releases need the Developer ID identity, a `notarytool` keychain profile, and the Sparkle EdDSA key in the login keychain under account `clipass`. Never write the private key to disk.
@@ -80,7 +92,7 @@ Releases need the Developer ID identity, a `notarytool` keychain profile, and th
 1. Launch clipass - it appears as a clipboard icon in your menu bar
 2. Copy text normally - clipass captures it in the background
 3. Click the menu bar icon or press `Cmd+Shift+V` to open the popup
-4. Click any history item to copy it back to the clipboard
+4. Select a history item. In the popover, click **Copy**. In the overlay, press Return to copy and close.
 5. Use the search field to filter history
 
 ### Transform Rules

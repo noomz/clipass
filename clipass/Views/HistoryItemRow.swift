@@ -12,13 +12,15 @@ struct HistoryItemRow: View {
     let onDelete: () -> Void
     let onTogglePin: () -> Void
     var onTagChanged: (() -> Void)? = nil
+    var isSelected = false
+    var onSelect: () -> Void
 
     @Environment(\.modelContext) private var modelContext
 
     @State private var isHovered = false
 
     var body: some View {
-        Button(action: copyToClipboard) {
+        Button(action: onSelect) {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
                     if item.isPinned {
@@ -32,7 +34,7 @@ struct HistoryItemRow: View {
                         .foregroundColor(.primary)
                 }
                 HStack {
-                    if let sourceApp = item.sourceApp {
+                    if let sourceApp = item.sourceAppDisplayName {
                         Text(sourceApp)
                             .font(.caption2)
                             .foregroundColor(.secondary)
@@ -47,10 +49,11 @@ struct HistoryItemRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal)
             .padding(.vertical, 4)
-            .background(isHovered ? Color.accentColor.opacity(0.1) : Color.clear)
+            .background(isSelected ? Color.accentColor.opacity(0.18) : isHovered ? Color.accentColor.opacity(0.08) : Color.clear)
             .cornerRadius(4)
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
         .onHover { hovering in
             isHovered = hovering
         }

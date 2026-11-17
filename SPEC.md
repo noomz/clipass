@@ -90,7 +90,7 @@ Status `.` means pending. All tasks describe future native work, not completed p
 | id | status | task | cites |
 | --- | --- | --- | --- |
 | T1 | x | Define shared tab, query, selection, focus, and transient-layer state. Add behavior tests. | V1,V3,V5,V8,V10,I.popover,I.modal |
-| T2 | . | Apply B tabs, chronological Recent, shared search, and empty states to both interfaces. | V3,V5,V6,V15,I.design |
+| T2 | x | Apply B tabs, chronological Recent, shared search, and empty states to both interfaces. | V3,V5,V6,V15,I.design |
 | T3 | . | Implement summon reset, explicit newest-row reveal, and noninterrupting capture notice. | V1,V2,V4,V16,I.capture |
 | T4 | . | Implement shared keyboard routing, clamped navigation, focus transitions, and shortcut help. | V7,V8,V10,V15,I.keys |
 | T5 | . | Add read-only preview with redaction, viewport restoration, and consistent Copy controls. | V9,V11,V12,I.display |
