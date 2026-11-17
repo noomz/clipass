@@ -24,5 +24,10 @@ let package = Package(
             // Sparkle.framework ships in clipass.app/Contents/Frameworks.
             linkerSettings: [.unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"])]
         ),
+        .testTarget(
+            name: "clipassTests",
+            dependencies: ["clipass"],
+            path: "clipassTests"
+        ),
     ]
 )
