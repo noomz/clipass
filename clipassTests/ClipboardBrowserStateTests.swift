@@ -35,6 +35,61 @@ final class ClipboardBrowserStateTests: XCTestCase {
 
     private var items: [State.Item] { [oldPin, newest, middle, pinnedMatch] }
 
+    func testV7NavigationClampsToFilteredPinnedResults() {
+        var state = State(items: items)
+        state.openTab(.pinned)
+        state.setQuery("tag:work notes")
+        XCTAssertEqual(state.handleKeyboard(.enterResults, focus: .search), .update(focus: true, reveal: true))
+        XCTAssertEqual(state.selectedID, pinnedMatch.id)
+        _ = state.handleKeyboard(.navigate(.previous), focus: .list)
+        XCTAssertEqual(state.selectedID, pinnedMatch.id)
+        _ = state.handleKeyboard(.navigate(.last), focus: .list)
+        XCTAssertEqual(state.selectedID, oldPin.id)
+        _ = state.handleKeyboard(.navigate(.next), focus: .list)
+        XCTAssertEqual(state.selectedID, oldPin.id)
+        _ = state.handleKeyboard(.navigate(.first), focus: .list)
+        XCTAssertEqual(state.selectedID, pinnedMatch.id)
+    }
+
+    func testV5KeyboardTabSwitchKeepsQueryAndListFocus() {
+        var state = State(items: items)
+        state.setQuery("work notes")
+        _ = state.handleKeyboard(.enterResults, focus: .search)
+        XCTAssertEqual(state.handleKeyboard(.cycleTab, focus: .list), .update(focus: true, reveal: true))
+        XCTAssertEqual(state.tab, .pinned)
+        XCTAssertEqual(state.query, "work notes")
+        XCTAssertEqual(state.selectedID, pinnedMatch.id)
+        XCTAssertEqual(state.focus, .list)
+    }
+
+    func testV8KeyboardLeavesEditingAndControlActionsAlone() {
+        var state = State(items: items)
+        XCTAssertEqual(state.handleKeyboard(.navigate(.last), focus: .search), .passThrough)
+        XCTAssertEqual(state.selectedID, newest.id)
+        XCTAssertEqual(state.handleKeyboard(.copyAndClose, focus: .control), .passThrough)
+        XCTAssertEqual(state.handleKeyboard(.copyAndClose, focus: .search), .copyAndClose(newest.content))
+        state.setQuery("no such result")
+        XCTAssertEqual(state.handleKeyboard(.enterResults, focus: .search), .passThrough)
+        XCTAssertEqual(state.handleKeyboard(.copyAndClose, focus: .search), .passThrough)
+        XCTAssertNil(state.selectedID)
+    }
+
+    func testV10EscapeFromHelpRestoresFocusBeforeClearingSearchOrDismissing() {
+        var state = State(items: items)
+        state.setQuery("work notes")
+        XCTAssertEqual(state.handleKeyboard(.toggleHelp, focus: .list), .update(focus: false, reveal: false))
+        XCTAssertEqual(state.transientLayer, .help)
+        XCTAssertEqual(state.handleKeyboard(.copyAndClose, focus: .control), .passThrough)
+        XCTAssertEqual(state.handleKeyboard(.back, focus: .control), .update(focus: true, reveal: false))
+        XCTAssertNil(state.transientLayer)
+        XCTAssertEqual(state.focus, .list)
+        XCTAssertEqual(state.query, "work notes")
+        XCTAssertEqual(state.handleKeyboard(.back, focus: .list), .update(focus: true, reveal: true))
+        XCTAssertEqual(state.query, "")
+        XCTAssertEqual(state.focus, .search)
+        XCTAssertEqual(state.handleKeyboard(.back, focus: .search), .dismiss)
+    }
+
     func testV1SummonResetsTabQuerySelectionFocusAndLayers() {
         var state = State(items: items)
         state.openTab(.pinned)

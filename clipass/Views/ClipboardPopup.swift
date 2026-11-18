@@ -23,6 +23,7 @@ struct ClipboardPopup: View {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(content, forType: .string)
     }
+    var onDismiss: () -> Void = { ClipboardPopupToggle.toggle() }
     @Environment(\.modelContext) private var modelContext
     @Environment(\.openWindow) private var openWindow
     @Environment(\.colorScheme) private var colorScheme
@@ -35,6 +36,8 @@ struct ClipboardPopup: View {
     @Query(sort: \Tag.name) private var allTags: [Tag]
     @State private var browser = ClipboardBrowserState()
     @FocusState private var focusedArea: ClipboardBrowserState.Focus?
+    @State private var searchHasFocus = false
+    @State private var searchFocusRequest = ClipboardBrowserSearchField.FocusRequest()
     @State private var revealRequest = UUID()
     @State private var scrollAnchor: UUID?
     @State private var isVisible = false
@@ -61,8 +64,27 @@ struct ClipboardPopup: View {
 
     private func openTab(_ tab: ClipboardBrowserState.Tab) {
         browser.openTab(tab)
-        focusedArea = browser.focus
+        applyBrowserFocus()
         revealRequest = UUID()
+    }
+
+    private func applyBrowserFocus(selectQuery: Bool = false) {
+        focusedArea = browser.focus
+        if browser.focus == .search { searchFocusRequest = .init(selectAll: selectQuery) }
+    }
+
+    private func handleKey(_ action: ClipboardBrowserState.Action, focus: ClipboardBrowserState.Focus) -> Bool {
+        switch browser.handleKeyboard(action, focus: focus) {
+        case .passThrough: return false
+        case .dismiss: onDismiss()
+        case .copyAndClose(let content):
+            onCopy(content)
+            onDismiss()
+        case .update(let focus, let reveal):
+            if focus { applyBrowserFocus(selectQuery: action == .focusSearch) }
+            if reveal { revealRequest = UUID() }
+        }
+        return true
     }
 
     private func refreshTagLookup() {
@@ -73,7 +95,7 @@ struct ClipboardPopup: View {
     private func summon() {
         tagLookup = TagLookup.build(from: modelContext)
         browser.summon(items: browserItems)
-        focusedArea = .search
+        applyBrowserFocus()
         scrollAnchor = browser.selectedID
         revealRequest = UUID()
     }
@@ -93,13 +115,10 @@ struct ClipboardPopup: View {
         let _ = perfLog("body eval: items=\(items.count), display=\(results.count), search='\(browser.query)'")
         VStack(spacing: 0) {
             titleBar
-            ClipboardBrowserSearch(query: browser.query, focused: focusedArea == .search, onClear: clearSearch) {
-                TextField("Text or tag:work", text: searchText)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 12))
-                    .foregroundStyle(style.ink)
-                    .accessibilityLabel("Search clipboard")
-                    .focused($focusedArea, equals: .search)
+            ClipboardBrowserSearch(query: browser.query, focused: searchHasFocus, onClear: clearSearch) {
+                ClipboardBrowserSearchField(text: searchText, textColor: style.ink, placeholderColor: style.muted,
+                                            fontSize: 12, focusRequest: searchFocusRequest, onFocusChange: searchFocusChanged)
+                    .frame(height: 20)
             }
             ClipboardBrowserTabs(tab: browser.tab, recentCount: items.count,
                                  pinnedCount: items.filter(\.isPinned).count, onSelect: openTab)
@@ -109,10 +128,12 @@ struct ClipboardPopup: View {
             } else {
                 historyList(results)
             }
-            ClipboardBrowserFooter(hasSelection: selected != nil, count: results.count, focus: browser.focus,
-                                   copy: { if let selected { onCopy(selected.content) } },
+            ClipboardBrowserFooter(hasSelection: selected != nil, count: results.count, focus: inputFocus,
+                                   hasQuery: !browser.query.isEmpty, copy: { if let selected { onCopy(selected.content) } },
                                    unseenCaptureCount: browser.unseenCaptureCount, jumpToLatest: summon)
         }
+        .clipboardShortcutHelp(isPresented: browser.transientLayer == .help, close: closeHelp)
+        .background { ClipboardBrowserKeyboard(focus: listFocus, action: handleKey) }
         .environment(\.clipboardBrowserStyle, style)
         .background(style.surface)
         .frame(width: ClipboardBrowserStyle.popoverSize.width, height: ClipboardBrowserStyle.popoverSize.height)
@@ -131,10 +152,17 @@ struct ClipboardPopup: View {
             previewCache = [:]
             browser.replaceItems(snapshots)
         }
-        .onChange(of: focusedArea) { _, focus in
-            if let focus { browser.setFocus(focus) }
-        }
     }
+
+    private var listFocus: ClipboardBrowserState.Focus { focusedArea == .list ? .list : .control }
+    private var inputFocus: ClipboardBrowserState.Focus { searchHasFocus ? .search : listFocus }
+
+    private func searchFocusChanged(_ focused: Bool) {
+        searchHasFocus = focused
+        if focused, browser.transientLayer == nil { browser.setFocus(.search) }
+    }
+
+    private func closeHelp() { _ = handleKey(.toggleHelp, focus: .control) }
 
     private var titleBar: some View {
         ClipboardBrowserTitleBar(title: "clipass") {
@@ -174,7 +202,8 @@ struct ClipboardPopup: View {
 
     private func clearSearch() {
         searchText.wrappedValue = ""
-        focusedArea = .search
+        browser.setFocus(.search)
+        applyBrowserFocus()
     }
 
     private func historyList(_ results: [ClipboardItem]) -> some View {

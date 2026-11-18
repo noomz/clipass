@@ -149,7 +149,8 @@ extension NativeBrowserChecks {
         let name = isOverlay ? "overlay" : "menu-bar popover"
         guard let field = textField(in: host) else { throw Failure(description: "\(name): no search field after summon") }
         try expect(field.stringValue.isEmpty, "\(name): summon kept query \(field.stringValue)")
-        try expect(searchHasFocus(field, in: window), "\(name): summon did not focus search")
+        try expect(searchHasFocus(field, in: window),
+                   "\(name): summon for \(content) did not focus search (key: \(window.isKeyWindow), responder: \(String(describing: window.firstResponder)))")
         try expect(element("Jump to latest", in: host) == nil, "\(name): summon kept stale notice")
         try expect(isRowVisible(content, host: host), "\(name): summon did not reveal \(content)")
         fixture.copied = nil

@@ -46,14 +46,24 @@ struct ClipboardBrowserState: Equatable {
 
     enum Action: Equatable {
         case openTab(Tab)
+        case cycleTab
         case focusSearch
+        case enterResults
+        case navigate(Navigation)
         case togglePreview
+        case toggleHelp
+        case copyAndClose
         case back
+    }
+
+    enum Navigation: Equatable {
+        case previous, next, first, last
     }
 
     enum ActionResult: Equatable {
         case handled
         case unhandled
+        case copyAndClose(String)
         case dismiss
     }
 
@@ -166,6 +176,31 @@ struct ClipboardBrowserState: Equatable {
         edit?.draft = draft
     }
 
+    enum KeyboardEffect: Equatable {
+        case passThrough
+        case dismiss
+        case copyAndClose(String)
+        case update(focus: Bool, reveal: Bool)
+    }
+
+    mutating func handleKeyboard(_ action: Action, focus actualFocus: Focus) -> KeyboardEffect {
+        if transientLayer == nil { setFocus(actualFocus) }
+        let before = self
+        switch handle(action, isActiveInterface: true) {
+        case .unhandled: return .passThrough
+        case .dismiss: return .dismiss
+        case .copyAndClose(let content): return .copyAndClose(content)
+        case .handled:
+            let updateFocus = transientLayer == nil && (before.focus != focus || before.transientLayer != nil)
+            switch action {
+            case .openTab, .cycleTab: return .update(focus: true, reveal: true)
+            case .focusSearch: return .update(focus: true, reveal: false)
+            case .enterResults, .navigate: return .update(focus: updateFocus, reveal: true)
+            default: return .update(focus: updateFocus, reveal: before.query != query)
+            }
+        }
+    }
+
     // These are explicit app actions, not raw key events. Native adapters own event routing.
     @discardableResult
     mutating func handle(
@@ -177,8 +212,26 @@ struct ClipboardBrowserState: Equatable {
         switch action {
         case .openTab(let tab):
             openTab(tab)
+        case .cycleTab:
+            openTab(tab == .recent ? .pinned : .recent)
         case .focusSearch:
+            if transientLayer == .help { transientLayer = nil }
             focus = .search
+        case .enterResults:
+            guard focus == .search, transientLayer == nil, selectedItem != nil else { return .unhandled }
+            focus = .list
+        case .navigate(let navigation):
+            guard focus == .list, transientLayer == nil, edit == nil else { return .unhandled }
+            let visible = visibleItems
+            guard !visible.isEmpty else { return .unhandled }
+            let current = visible.firstIndex { $0.id == selectedID } ?? 0
+            let index = switch navigation {
+            case .previous: max(current - 1, 0)
+            case .next: min(current + 1, visible.count - 1)
+            case .first: 0
+            case .last: visible.count - 1
+            }
+            selectedID = visible[index].id
         case .togglePreview:
             guard selectedItem != nil, edit == nil else { return .unhandled }
             if presentation == .preview {
@@ -188,6 +241,16 @@ struct ClipboardBrowserState: Equatable {
                 presentation = .preview
                 focus = .preview
             }
+        case .toggleHelp:
+            switch transientLayer {
+            case nil: transientLayer = .help
+            case .help: transientLayer = nil
+            default: return .unhandled
+            }
+        case .copyAndClose:
+            guard [.search, .list, .preview].contains(focus), transientLayer == nil,
+                  edit == nil, let selectedItem else { return .unhandled }
+            return .copyAndClose(selectedItem.content)
         case .back:
             if transientLayer != nil {
                 transientLayer = nil
@@ -199,6 +262,7 @@ struct ClipboardBrowserState: Equatable {
                 focus = .list
             } else if !query.isEmpty {
                 setQuery("")
+                focus = .search
             } else {
                 return .dismiss
             }

@@ -65,8 +65,7 @@ final class OverlayPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
 
-    /// Click-outside and ESC dismissal entry point.
-    /// Called by the system when the panel loses key status (another window gets focus, ESC, etc.)
+    /// Dismiss when the panel loses key status.
     override func resignKey() {
         super.resignKey()
 
@@ -80,20 +79,6 @@ final class OverlayPanel: NSPanel {
         NotificationCenter.default.post(name: .overlayDidResignKey, object: nil)
     }
 
-    /// Registered by ClipboardOverlayView to intercept ESC when the editor panel is open.
-    /// Returns true if an edit was cancelled (overlay stays open); false if no edit active.
-    var cancelEditHandler: (() -> Bool)? = nil
-
-    /// Belt-and-suspenders ESC handler at the NSPanel level.
-    /// Fires when OverlaySearchField.keyDown does not consume the ESC key event
-    /// (e.g., if the field loses first-responder before the key is processed — Pitfall 7).
-    /// Checks cancelEditHandler first so edit mode gets a chance to cancel before hide().
-    override func cancelOperation(_ sender: Any?) {
-        if cancelEditHandler?() == true {
-            return  // ESC cancelled the editor; overlay stays open
-        }
-        OverlayWindowController.shared.hide()
-    }
 }
 
 // MARK: - Notification name
@@ -123,8 +108,7 @@ final class OverlayWindowController {
         return UserDefaults.standard.bool(forKey: followsMouseScreenDefaultsKey)
     }
 
-    // Internal (not private) so ClipboardOverlayView can register its cancelEditHandler
-    let panel: OverlayPanel
+    private let panel: OverlayPanel
     private var previousApp: NSRunningApplication?
 
     private init() {
@@ -253,11 +237,7 @@ final class OverlayWindowController {
         previousApp = nil
     }
 
-    // MARK: Paste and Hide
-
-    /// Writes `content` to the system pasteboard, then hides the panel and restores focus.
-    /// Plan 02 calls this from the Return key handler in ClipboardOverlayView.
-    func pasteAndHide(content: String) {
+    func copyAndHide(content: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(content, forType: .string)
         hide()

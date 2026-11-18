@@ -5,7 +5,7 @@ struct ClipboardOverlayView: View {
     // Passed in to avoid reaching the controller singleton during NSHostingView initialization.
     unowned let panel: OverlayPanel
     let monitor: ClipboardMonitor
-    var onCopyAndClose: (String) -> Void = { OverlayWindowController.shared.pasteAndHide(content: $0) }
+    var onCopyAndClose: (String) -> Void = { OverlayWindowController.shared.copyAndHide(content: $0) }
     var onDismiss: () -> Void = { OverlayWindowController.shared.hide() }
 
     @Environment(\.colorScheme) private var colorScheme
@@ -19,7 +19,7 @@ struct ClipboardOverlayView: View {
     @State private var scrollAnchor: UUID?
     @State private var showContent = false
     @State private var searchHasFocus = false
-    @State private var searchFocusRequest = UUID()
+    @State private var searchFocusRequest = ClipboardBrowserSearchField.FocusRequest()
     @State private var editingItemID: ClipboardItem.ID?
     @State private var editorContent = ""
     @State private var tagLookup: TagLookup = .empty
@@ -55,9 +55,37 @@ struct ClipboardOverlayView: View {
         browser.openTab(tab)
         editingItemID = nil
         editorContent = ""
-        focusedArea = browser.focus
-        if browser.focus == .search { searchFocusRequest = UUID() }
+        applyBrowserFocus()
         revealRequest = UUID()
+    }
+
+    private func applyBrowserFocus(selectQuery: Bool = false) {
+        focusedArea = browser.focus
+        if browser.focus == .search { searchFocusRequest = .init(selectAll: selectQuery) }
+    }
+
+    private func handleKey(_ action: ClipboardBrowserState.Action, focus: ClipboardBrowserState.Focus) -> Bool {
+        if editingItemID != nil {
+            switch action {
+            case .back:
+                cancelEdit()
+                focusedArea = .list
+                return true
+            case .openTab, .cycleTab:
+                cancelEdit()
+            default:
+                return false
+            }
+        }
+        switch browser.handleKeyboard(action, focus: focus) {
+        case .passThrough: return false
+        case .dismiss: onDismiss()
+        case .copyAndClose(let content): onCopyAndClose(content)
+        case .update(let focus, let reveal):
+            if focus { applyBrowserFocus(selectQuery: action == .focusSearch) }
+            if reveal { revealRequest = UUID() }
+        }
+        return true
     }
 
     private func refreshTagLookup() {
@@ -73,8 +101,7 @@ struct ClipboardOverlayView: View {
         previewCache = [:]
         refreshTagLookup()
         browser.summon(items: browserItems)
-        focusedArea = .search
-        searchFocusRequest = UUID()
+        applyBrowserFocus()
         scrollAnchor = browser.selectedID
         revealRequest = UUID()
     }
@@ -115,13 +142,6 @@ struct ClipboardOverlayView: View {
         .onAppear {
             showContent = true
             summon()
-            panel.cancelEditHandler = {
-                if self.editingItemID != nil {
-                    self.cancelEdit()
-                    return true
-                }
-                return false
-            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .overlayWillShow, object: panel)) { _ in
             summon()
@@ -133,10 +153,17 @@ struct ClipboardOverlayView: View {
             previewCache = [:]
             browser.replaceItems(snapshots)
         }
-        .onChange(of: focusedArea) { _, focus in
-            if let focus { browser.setFocus(focus) }
-        }
     }
+
+    private var listFocus: ClipboardBrowserState.Focus { focusedArea == .list ? .list : .control }
+    private var inputFocus: ClipboardBrowserState.Focus { searchHasFocus ? .search : listFocus }
+
+    private func searchFocusChanged(_ focused: Bool) {
+        searchHasFocus = focused
+        if focused, browser.transientLayer == nil { browser.setFocus(.search) }
+    }
+
+    private func closeHelp() { _ = handleKey(.toggleHelp, focus: .control) }
 
     private var contentStack: some View {
         let results = displayItems
@@ -171,33 +198,24 @@ struct ClipboardOverlayView: View {
             } else {
                 ClipboardBrowserFooter(selectedText: selected.map { previewText(for: $0) },
                                        hasSelection: selected != nil, count: results.count,
-                                       focus: browser.focus, copy: pasteSelected,
+                                       focus: inputFocus, hasQuery: !browser.query.isEmpty, copy: copySelectedAndClose,
                                        unseenCaptureCount: browser.unseenCaptureCount, jumpToLatest: summon)
             }
         }
+        .clipboardShortcutHelp(isPresented: browser.transientLayer == .help, close: closeHelp)
+        .background { ClipboardBrowserKeyboard(focus: listFocus, action: handleKey) }
         .animation(.easeOut(duration: 0.15), value: editingItemID)
     }
 
     private var searchBar: some View {
         ClipboardBrowserSearch(query: browser.query, focused: editingItemID == nil && searchHasFocus, onClear: clearSearch) {
-            OverlaySearchField(
+            ClipboardBrowserSearchField(
                 text: searchText,
-                placeholder: "Text or tag:work",
                 textColor: theme.id == .system ? style.ink : theme.searchFieldText,
                 placeholderColor: theme.id == .system ? style.muted : theme.searchFieldPlaceholder,
                 fontSize: theme.bodyFontSize,
                 focusRequest: searchFocusRequest,
-                onFocus: {
-                    browser.setFocus(.search)
-                    focusedArea = .search
-                },
-                onFocusChange: { searchHasFocus = $0 },
-                onArrowUp: editingItemID == nil ? moveSelectionUp : {},
-                onArrowDown: editingItemID == nil ? moveSelectionDown : {},
-                onEscape: {
-                    if editingItemID != nil { cancelEdit() } else { onDismiss() }
-                },
-                onReturn: editingItemID == nil ? pasteSelected : {}
+                onFocusChange: searchFocusChanged
             )
             .frame(height: 20)
         }
@@ -208,8 +226,7 @@ struct ClipboardOverlayView: View {
     private func clearSearch() {
         searchText.wrappedValue = ""
         browser.setFocus(.search)
-        focusedArea = .search
-        searchFocusRequest = UUID()
+        applyBrowserFocus()
     }
 
     private func historyList(_ results: [ClipboardItem]) -> some View {
@@ -226,7 +243,7 @@ struct ClipboardOverlayView: View {
                             onTap: { selectItem(item.id) },
                             onDoubleTap: {
                                 selectItem(item.id)
-                                pasteSelected()
+                                copySelectedAndClose()
                             },
                             onEdit: {
                                 selectItem(item.id)
@@ -249,18 +266,6 @@ struct ClipboardOverlayView: View {
             .scrollPosition(id: $scrollAnchor, anchor: .top)
             .focusable()
             .focused($focusedArea, equals: .list)
-            .onKeyPress(.return) {
-                guard focusedArea == .list, editingItemID == nil else { return .ignored }
-                pasteSelected()
-                return .handled
-            }
-            .onMoveCommand { direction in
-                switch direction {
-                case .up: moveSelectionUp()
-                case .down: moveSelectionDown()
-                default: break
-                }
-            }
             .onAppear {
                 if let id = selectedID { proxy.scrollTo(id, anchor: .top) }
             }
@@ -277,31 +282,8 @@ struct ClipboardOverlayView: View {
         }
     }
 
-    private func moveSelectionDown() {
-        guard !displayItems.isEmpty else { return }
-        if let current = selectedID,
-           let idx = displayItems.firstIndex(where: { $0.id == current }),
-           idx + 1 < displayItems.count {
-            selectItem(displayItems[idx + 1].id)
-        } else if let id = displayItems.first?.id {
-            selectItem(id)
-        }
-    }
-
-    private func moveSelectionUp() {
-        guard !displayItems.isEmpty else { return }
-        if let current = selectedID,
-           let idx = displayItems.firstIndex(where: { $0.id == current }),
-           idx > 0 {
-            selectItem(displayItems[idx - 1].id)
-        } else if let id = displayItems.last?.id {
-            selectItem(id)
-        }
-    }
-
-    private func pasteSelected() {
-        guard let selectedID,
-              let item = displayItems.first(where: { $0.id == selectedID }) else { return }
+    private func copySelectedAndClose() {
+        guard let item = browser.selectedItem else { return }
         onCopyAndClose(item.content)
     }
 

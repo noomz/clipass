@@ -66,6 +66,8 @@ struct NativeBrowserChecks {
                     try renderTabs()
                     try await exerciseInterface(isOverlay: false)
                     try await exerciseInterface(isOverlay: true)
+                    try await exerciseKeyboard(isOverlay: false)
+                    try await exerciseKeyboard(isOverlay: true)
                     try await exerciseSummon(isOverlay: true)
                     if let fixturePath = ProcessInfo.processInfo.environment["CLIPASS_PARITY_FIXTURE"] {
                         let fixture = try Data(contentsOf: URL(fileURLWithPath: fixturePath))
@@ -278,20 +280,21 @@ struct NativeBrowserChecks {
         -> (NSHostingView<AnyView>, NSWindow) {
         let panel = OverlayPanel()
         panel.shownAt = .distantFuture
-        let root: AnyView
-        if isOverlay {
-            let themes = ThemeManager()
-            themes.current = Theme.themes[.system]!
-            root = AnyView(ClipboardOverlayView(panel: panel, monitor: monitor, onCopyAndClose: onCopy, onDismiss: { panel.orderOut(nil) })
-                .environment(themes).modelContext(context))
-        } else {
-            root = AnyView(ClipboardPopup(monitor: monitor, onCopy: onCopy).modelContext(context))
-        }
-        let host = isOverlay ? panel.host(root) : NSHostingView(rootView: root)
         let window = isOverlay ? panel : CheckPopoverWindow(
             contentRect: NSRect(origin: NSPoint(x: 100, y: 100), size: ClipboardBrowserStyle.popoverSize),
             styleMask: [.borderless], backing: .buffered, defer: false
         )
+        let dismiss: () -> Void = { [weak window] in window?.orderOut(nil) }
+        let root: AnyView
+        if isOverlay {
+            let themes = ThemeManager()
+            themes.current = Theme.themes[.system]!
+            root = AnyView(ClipboardOverlayView(panel: panel, monitor: monitor, onCopyAndClose: onCopy, onDismiss: dismiss)
+                .environment(themes).modelContext(context))
+        } else {
+            root = AnyView(ClipboardPopup(monitor: monitor, onCopy: onCopy, onDismiss: dismiss).modelContext(context))
+        }
+        let host = isOverlay ? panel.host(root) : NSHostingView(rootView: root)
         window.isReleasedWhenClosed = false
         window.appearance = NSAppearance(named: .aqua)
         if !isOverlay { window.contentView = host }

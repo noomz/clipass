@@ -197,6 +197,7 @@ struct ClipboardBrowserFooter: View {
     let hasSelection: Bool
     let count: Int
     let focus: ClipboardBrowserState.Focus
+    var hasQuery = false
     let copy: () -> Void
     var unseenCaptureCount = 0
     var jumpToLatest: () -> Void = {}
@@ -251,13 +252,11 @@ struct ClipboardBrowserFooter: View {
             .padding(.horizontal, 12)
             .frame(height: style.compact ? 43 : 45)
             HStack(spacing: 12) {
-                if style.compact {
-                    Text("Click a row to select")
-                } else {
-                    Text(focus == .search ? "↑ ↓  Results" : "↑ ↓  Navigate")
-                    Text("↵  Copy")
-                    if focus == .search || focus == .list { Text("esc  Close") }
-                }
+                if hasSelection && focus == .search { Text("↓ Results") }
+                if hasSelection && focus == .list { Text("↑ ↓ Navigate") }
+                if hasSelection && (focus == .search || focus == .list) { Text("↵ Copy & close") }
+                Text(hasQuery ? "Esc Clear" : "Esc Close")
+                Text("⌘/ Help")
                 Spacer(minLength: 0)
                 Text("\(count) \(count == 1 ? "item" : "items")").monospacedDigit()
             }
@@ -268,6 +267,65 @@ struct ClipboardBrowserFooter: View {
             .accessibilityHidden(true)
         }
         .background(style.footer)
+    }
+}
+
+extension View {
+    func clipboardShortcutHelp(isPresented: Bool, close: @escaping () -> Void) -> some View {
+        disabled(isPresented)
+            .accessibilityHidden(isPresented)
+            .overlay {
+                if isPresented { ClipboardBrowserShortcutHelp(close: close) }
+            }
+    }
+}
+
+private struct ClipboardBrowserShortcutHelp: View {
+    let close: () -> Void
+    @Environment(\.clipboardBrowserStyle) private var style
+    @FocusState private var closeFocused: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Keyboard shortcuts")
+                    .font(.system(size: 13, weight: .semibold))
+                    .accessibilityAddTraits(.isHeader)
+                Spacer()
+                Button(action: close) {
+                    Image(systemName: "xmark")
+                        .frame(width: 24, height: 24)
+                        .overlay {
+                            if closeFocused { RoundedRectangle(cornerRadius: 4).strokeBorder(style.focus, lineWidth: 2) }
+                        }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close keyboard shortcuts")
+                .keyboardShortcut(.defaultAction)
+                .focused($closeFocused)
+            }
+            style.separator()
+            ScrollView {
+                VStack(spacing: 5) {
+                    ForEach(Array(ClipboardBrowserShortcut.keymap.enumerated()), id: \.offset) { _, shortcut in
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(shortcut.title + (shortcut.awaitsPreview ? " (planned)" : ""))
+                            Spacer()
+                            Text(shortcut.symbols).monospaced()
+                        }
+                        .accessibilityElement(children: .combine)
+                    }
+                }
+                .font(.system(size: 11))
+            }
+        }
+        .padding(12)
+        .foregroundStyle(style.ink)
+        .background(style.surface, in: RoundedRectangle(cornerRadius: 10))
+        .overlay { RoundedRectangle(cornerRadius: 10).strokeBorder(style.controlBorder) }
+        .padding(12)
+        .background(.black.opacity(0.25))
+        .task { closeFocused = true }
     }
 }
 
