@@ -21,36 +21,8 @@ struct HistoryItemRow: View {
 
     var body: some View {
         Button(action: onSelect) {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 4) {
-                    if item.isPinned {
-                        Image(systemName: "pin.fill")
-                            .font(.caption2)
-                            .foregroundColor(.orange)
-                    }
-                    Text(previewText)
-                        .lineLimit(1)
-                        .font(.body)
-                        .foregroundColor(.primary)
-                }
-                HStack {
-                    if let sourceApp = item.sourceAppDisplayName {
-                        Text(sourceApp)
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                    TagBadgesRow(tags: tagInfos, isSelected: false, overflowColor: .secondary)
-                    Spacer()
-                    Text(relativeTimeString(from: item.timestamp))
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal)
-            .padding(.vertical, 4)
-            .background(isSelected ? Color.accentColor.opacity(0.18) : isHovered ? Color.accentColor.opacity(0.08) : Color.clear)
-            .cornerRadius(4)
+            ClipboardBrowserRow(item: item, previewText: previewText, tags: tagInfos,
+                                isSelected: isSelected, isHovered: isHovered) { EmptyView() }
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
@@ -264,22 +236,6 @@ struct HistoryItemRow: View {
         NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 
-    private func relativeTimeString(from date: Date) -> String {
-        let interval = Date().timeIntervalSince(date)
-
-        if interval < 60 {
-            return "just now"
-        } else if interval < 3600 {
-            let minutes = Int(interval / 60)
-            return "\(minutes)m ago"
-        } else if interval < 86400 {
-            let hours = Int(interval / 3600)
-            return "\(hours)h ago"
-        } else {
-            let days = Int(interval / 86400)
-            return "\(days)d ago"
-        }
-    }
 }
 
 // MARK: - NSMenuItem builder helper

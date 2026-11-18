@@ -12,7 +12,13 @@ struct NativeBrowserChecks {
                     try renderTabs()
                     try await exerciseInterface(isOverlay: false)
                     try await exerciseInterface(isOverlay: true)
-                    print("PASS: native popover and overlay tabs, shared search, and empty states")
+                    if let fixturePath = ProcessInfo.processInfo.environment["CLIPASS_PARITY_FIXTURE"] {
+                        let fixture = try Data(contentsOf: URL(fileURLWithPath: fixturePath))
+                        let entries = try JSONDecoder().decode([FixtureEntry].self, from: fixture)
+                        try await captureParity(entries, isOverlay: false)
+                        try await captureParity(entries, isOverlay: true)
+                    }
+                    print("PASS: native popover and overlay layout, tabs, shared search, Copy, and empty states")
                     exit(0)
                 } catch {
                     fputs("FAIL: \(error)\n", stderr)
@@ -60,49 +66,34 @@ struct NativeBrowserChecks {
         new.tags.append(tag)
         try context.save()
 
-        let panel = OverlayPanel()
-        // Resigning this disposable panel must not initialize the production controller.
-        panel.shownAt = .distantFuture
         var copied: String?
-        let root: AnyView
-        if isOverlay {
-            root = AnyView(ClipboardOverlayView(panel: panel, onCopyAndClose: { copied = $0 })
-                .environment(ThemeManager()).modelContext(context))
-        } else {
-            root = AnyView(ClipboardPopup(monitor: ClipboardMonitor(), onCopy: { copied = $0 }).modelContext(context))
-        }
-        let host = NSHostingView(rootView: root)
-        let window = isOverlay ? panel : NSWindow(
-            contentRect: NSRect(x: 100, y: 100, width: 300, height: 350),
-            styleMask: [.titled], backing: .buffered, defer: false
-        )
-        window.isReleasedWhenClosed = false
-        window.contentView = host
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        let (host, window) = showInterface(isOverlay: isOverlay, context: context) { copied = $0 }
         defer { window.close() }
-        for _ in 0..<20 {
-            if element("Recent", in: host) != nil { break }
-            try await Task.sleep(nanoseconds: 100_000_000)
-        }
-        try await settle()
+        try await waitForInterface(host)
 
         try expect(element("Recent", in: host) != nil, "\(name): Recent tab missing: \(text(in: host))")
         try expect(element("Pinned", in: host) != nil, "\(name): Pinned tab missing")
+        guard let field = textField(in: host) else { throw Failure(description: "\(name): no native search field") }
+        let expectedSize = isOverlay ? CGSize(width: 640, height: 420) : CGSize(width: 300, height: 356)
+        try expect(host.bounds.size == expectedSize, "\(name): unexpected content size \(host.bounds.size)")
+        let searchFrame = window.convertToScreen(field.convert(field.bounds, to: nil))
+        let tabFrame = try textFrame("Recent", in: host)
+        let rowFrame = try textFrame("Newest work notes", in: host)
+        let copyLabel = isOverlay ? "Copy & close" : "Copy"
+        let copyFrame = try textFrame(copyLabel, in: host)
+        try expect(searchFrame.midY > tabFrame.midY && tabFrame.midY > rowFrame.midY && rowFrame.midY > copyFrame.midY,
+                   "\(name): search, tabs, history and Copy are out of order")
         try capture(host, name: "\(name)-recent")
-        try expect(text(in: host).contains("Newest work notes"), "\(name): newest copy missing: \(text(in: host))")
-        if !isOverlay {
-            try press("Copy", in: host)
-            try await settle()
-            try expect(copied == "Newest work notes", "popover: visible Copy did not copy selection")
-        }
+        try press(copyLabel, in: host)
+        try await settle()
+        try expect(copied == "Newest work notes", "\(name): visible Copy did not copy selection")
 
         try press("Pinned", in: host)
         try await settle()
         try expect(text(in: host).contains("Older work notes"), "\(name): pinned copy missing")
         try expect(!text(in: host).contains("Newest work notes"), "\(name): Pinned includes unpinned copy")
 
-        guard let field = textField(in: host) else { throw Failure(description: "\(name): no native search field") }
+        try capture(host, name: "\(name)-pinned")
         window.makeFirstResponder(field)
         setQuery("tag:work work notes", field: field)
         try await settle()
@@ -141,10 +132,9 @@ struct NativeBrowserChecks {
         try await settle()
         try expect(text(in: host).contains("No matches"), "\(name): no-match explanation missing")
         try expect(!text(in: host).contains("Newest work notes"), "\(name): stale no-match row")
-        if !isOverlay, let button = element("Copy", in: host) {
-            try expect(button.value(forKey: "accessibilityEnabled") as? Bool == false,
-                       "popover: no-match Copy is enabled")
-        }
+        guard let button = element(copyLabel, in: host) else { throw Failure(description: "\(name): Copy disappeared") }
+        try expect(button.value(forKey: "accessibilityEnabled") as? Bool == false,
+                   "\(name): no-match Copy is enabled")
         try capture(host, name: "\(name)-no-matches")
         try press("Clear Search", in: host)
         try await settle()
@@ -159,17 +149,20 @@ struct NativeBrowserChecks {
         guard let scroll = scrollView(in: host), let document = scroll.documentView else {
             throw Failure(description: "\(name): no native history scroll view")
         }
-        scroll.contentView.scroll(to: NSPoint(x: 0, y: document.bounds.maxY))
-        scroll.reflectScrolledClipView(scroll.contentView)
+        let clip = scroll.contentView
+        let bottom = document.isFlipped ? document.frame.maxY - clip.bounds.height : document.frame.minY
+        clip.scroll(to: clip.constrainBoundsRect(NSRect(origin: NSPoint(x: clip.bounds.minX, y: bottom),
+                                                        size: clip.bounds.size)).origin)
+        scroll.reflectScrolledClipView(clip)
         try await settle()
-        let hostFrame = window.convertToScreen(host.convert(host.bounds, to: nil))
+        let viewport = window.convertToScreen(clip.convert(clip.bounds, to: nil))
         let scrolledFrame = try? textFrame("Newest work notes", in: host)
-        try expect(scrolledFrame.map { !$0.intersects(hostFrame) } ?? true,
-                   "\(name): scroll fixture did not move newest row offscreen")
+        try expect(scrolledFrame.map { !$0.intersects(viewport) } ?? true,
+                   "\(name): newest row \(String(describing: scrolledFrame)) still intersects \(viewport) after scrolling to \(clip.bounds.origin) in \(document.frame)")
         setQuery("work", field: field)
         try await settle()
-        let rowFrame = try textFrame("Newest work notes", in: host)
-        try expect(rowFrame.intersects(hostFrame), "\(name): query change left selection offscreen")
+        let revealedFrame = try textFrame("Newest work notes", in: host)
+        try expect(revealedFrame.intersects(viewport), "\(name): query change left selection offscreen")
         setQuery("", field: field)
         try await settle()
         try capture(host, name: "\(name)-query-reveal")
@@ -181,11 +174,97 @@ struct NativeBrowserChecks {
         try await settle()
         try expect(text(in: host).contains("No pinned items yet"), "\(name): empty Pinned explanation missing")
         try expect(!text(in: host).contains("Older work notes"), "\(name): stale unpinned row")
+        try capture(host, name: "\(name)-empty-pinned")
         for item in try context.fetch(FetchDescriptor<ClipboardItem>()) { context.delete(item) }
         try context.save()
         try await settle()
         try expect(text(in: host).contains("Copy text to get started."), "\(name): empty-history explanation missing")
+        try capture(host, name: "\(name)-empty-history")
         print("PASS: \(name)")
+    }
+
+    final class CheckPopoverWindow: NSWindow {
+        override var canBecomeKey: Bool { true }
+        override var canBecomeMain: Bool { true }
+    }
+
+    struct FixtureEntry: Decodable {
+        let content: String
+        let app: String
+        let tags: [String]
+        let minutes: Int
+        let pinned: Bool?
+    }
+
+    static func captureParity(_ entries: [FixtureEntry], isOverlay: Bool) async throws {
+        let name = isOverlay ? "overlay" : "popover"
+        let container = try ModelContainer(
+            for: ClipboardItem.self, TransformRule.self, Hook.self, IgnoredApp.self,
+            IgnoredPattern.self, RedactionPattern.self, ContextAction.self, Tag.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let context = container.mainContext
+        let now = Date()
+        let tags = Dictionary(uniqueKeysWithValues: Set(entries.flatMap(\.tags)).map { name in
+            let tag = Tag(name: name)
+            context.insert(tag)
+            return (name, tag)
+        })
+        for entry in entries {
+            let item = ClipboardItem(content: entry.content, sourceApp: entry.app,
+                                     timestamp: now.addingTimeInterval(TimeInterval(-60 * entry.minutes)),
+                                     isPinned: entry.pinned ?? false)
+            context.insert(item)
+            item.tags = entry.tags.compactMap { tags[$0] }
+        }
+        try context.save()
+        let (host, window) = showInterface(isOverlay: isOverlay, context: context) { _ in }
+        defer { window.close() }
+        try await waitForInterface(host)
+        try capture(host, name: "\(name)-b-recent")
+        try press("Pinned", in: host)
+        try await settle()
+        try capture(host, name: "\(name)-b-pinned")
+        guard let field = textField(in: host) else { throw Failure(description: "\(name): no native search field") }
+        try press("Recent", in: host)
+        window.makeFirstResponder(field)
+        setQuery("missing query", field: field)
+        try await settle()
+        try capture(host, name: "\(name)-b-no-matches")
+    }
+
+    static func showInterface(isOverlay: Bool, context: ModelContext, onCopy: @escaping (String) -> Void)
+        -> (NSHostingView<AnyView>, NSWindow) {
+        let panel = OverlayPanel()
+        panel.shownAt = .distantFuture
+        let root: AnyView
+        if isOverlay {
+            let themes = ThemeManager()
+            themes.current = Theme.themes[.system]!
+            root = AnyView(ClipboardOverlayView(panel: panel, onCopyAndClose: onCopy, onDismiss: { panel.orderOut(nil) })
+                .environment(themes).modelContext(context))
+        } else {
+            root = AnyView(ClipboardPopup(monitor: ClipboardMonitor(), onCopy: onCopy).modelContext(context))
+        }
+        let host = isOverlay ? panel.host(root) : NSHostingView(rootView: root)
+        let window = isOverlay ? panel : CheckPopoverWindow(
+            contentRect: NSRect(origin: NSPoint(x: 100, y: 100), size: ClipboardBrowserStyle.popoverSize),
+            styleMask: [.borderless], backing: .buffered, defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.appearance = NSAppearance(named: .aqua)
+        if !isOverlay { window.contentView = host }
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        return (host, window)
+    }
+
+    static func waitForInterface(_ host: NSView) async throws {
+        for _ in 0..<20 {
+            if element("Recent", in: host) != nil { break }
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
+        try await settle()
     }
 
     static func renderTabs() throws {
@@ -193,7 +272,8 @@ struct NativeBrowserChecks {
         for (name, scheme) in [("light", ColorScheme.light), ("dark", ColorScheme.dark)] {
             let renderer = ImageRenderer(content: ClipboardBrowserTabs(tab: .recent, onSelect: { _ in })
                 .padding(.top, 8).frame(width: 300).background(.background)
-                .environment(\.colorScheme, scheme))
+                .environment(\.colorScheme, scheme)
+                .environment(\.clipboardBrowserStyle, ClipboardBrowserStyle(compact: true, scheme: scheme)))
             renderer.scale = 2
             guard let image = renderer.nsImage, let tiff = image.tiffRepresentation,
                   let bitmap = NSBitmapImageRep(data: tiff),

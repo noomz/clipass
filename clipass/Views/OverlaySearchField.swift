@@ -12,15 +12,16 @@ import SwiftUI
 ///   3. ESC dismissal: intercepts Escape and calls `onEscape` because `.onKeyPress(.escape)` on
 ///      a List view does not fire when the search field holds first-responder status.
 ///
-/// Theme colors are applied in both `makeNSView` and `updateNSView` so initial state
-/// and subsequent theme changes both render correctly.
 struct OverlaySearchField: NSViewRepresentable {
 
     @Binding var text: String
     var placeholder: String = "Search clipboard..."
-    var theme: Theme
+    var textColor: Color
+    var placeholderColor: Color
+    var fontSize: CGFloat
     var shouldRefocus: Bool = true  // when true, re-requests first-responder on next update
     var onFocus: () -> Void = {}
+    var onFocusChange: (Bool) -> Void = { _ in }
     var onArrowUp: () -> Void = {}
     var onArrowDown: () -> Void = {}
     var onEscape: () -> Void = {}
@@ -33,16 +34,17 @@ struct OverlaySearchField: NSViewRepresentable {
         field.delegate = context.coordinator
         field.isBordered = false
         field.focusRingType = .none
+        field.setAccessibilityLabel("Search clipboard")
         field.cell?.wraps = false
         field.cell?.isScrollable = true
         field.stringValue = text
+        field.onFocusChange = onFocusChange
         field.onArrowUp = onArrowUp
         field.onArrowDown = onArrowDown
         field.onEscape = onEscape
         field.onReturn = onReturn
 
-        // Apply initial theme styling
-        applyTheme(to: field)
+        applyStyle(to: field)
 
         // Request first-responder status once the view is installed in a window.
         // Using asyncAfter(0) defers until the runloop tick after the hosting view
@@ -62,13 +64,13 @@ struct OverlaySearchField: NSViewRepresentable {
         }
 
         // Always keep callbacks current (closures capture latest state).
+        nsView.onFocusChange = onFocusChange
         nsView.onArrowUp = onArrowUp
         nsView.onArrowDown = onArrowDown
         nsView.onEscape = onEscape
         nsView.onReturn = onReturn
 
-        // Re-apply theme colors on every update so theme changes take effect immediately.
-        applyTheme(to: nsView)
+        applyStyle(to: nsView)
 
         // Restore focus to the search field when transitioning from editing back to normal mode.
         // Only re-request first-responder when shouldRefocus is true and the field doesn't already hold it.
@@ -88,16 +90,14 @@ struct OverlaySearchField: NSViewRepresentable {
         Coordinator(self)
     }
 
-    // MARK: Theme Application
-
-    private func applyTheme(to nsView: NSTextField) {
-        nsView.textColor = NSColor(theme.searchFieldText)
-        nsView.font = NSFont.systemFont(ofSize: theme.bodyFontSize)
+    private func applyStyle(to nsView: NSTextField) {
+        nsView.textColor = NSColor(textColor)
+        nsView.font = NSFont.systemFont(ofSize: fontSize)
 
         // Placeholder with themed color
         let placeholderAttributes: [NSAttributedString.Key: Any] = [
-            .foregroundColor: NSColor(theme.searchFieldPlaceholder),
-            .font: NSFont.systemFont(ofSize: theme.bodyFontSize)
+            .foregroundColor: NSColor(placeholderColor),
+            .font: NSFont.systemFont(ofSize: fontSize)
         ]
         nsView.placeholderAttributedString = NSAttributedString(
             string: placeholder,
@@ -121,6 +121,10 @@ struct OverlaySearchField: NSViewRepresentable {
 
         func controlTextDidBeginEditing(_ obj: Notification) {
             parent.onFocus()
+        }
+
+        func controlTextDidEndEditing(_ obj: Notification) {
+            (obj.object as? InterceptingTextField)?.reportFocus()
         }
 
         func controlTextDidChange(_ obj: Notification) {
@@ -157,6 +161,27 @@ struct OverlaySearchField: NSViewRepresentable {
 
 /// NSTextField subclass that intercepts arrow keys and ESC before SwiftUI sees them.
 final class InterceptingTextField: NSTextField {
+
+    var onFocusChange: (Bool) -> Void = { _ in }
+
+    override func becomeFirstResponder() -> Bool {
+        let accepted = super.becomeFirstResponder()
+        if accepted { reportFocus() }
+        return accepted
+    }
+
+    override func resignFirstResponder() -> Bool {
+        let accepted = super.resignFirstResponder()
+        if accepted { reportFocus() }
+        return accepted
+    }
+
+    func reportFocus() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let responder = window?.firstResponder else { return }
+            onFocusChange(responder === self || responder === currentEditor())
+        }
+    }
 
     var onArrowUp: () -> Void = {}
     var onArrowDown: () -> Void = {}

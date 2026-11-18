@@ -11,7 +11,8 @@ import AppKit
 /// No @Query, no SwiftData relationship access, no expensive computation during render.
 struct OverlayItemRow: View {
 
-    @Environment(ThemeManager.self) private var themeManager
+    @FocusState private var editFocused: Bool
+    @Environment(\.clipboardBrowserStyle) private var style
     @Environment(\.modelContext) private var modelContext
 
     let item: ClipboardItem
@@ -28,74 +29,25 @@ struct OverlayItemRow: View {
     @State private var isHovered = false
     @State private var showNewTagAlert = false
 
-    private var theme: Theme { themeManager.current }
-
-    private var relativeTime: String {
-        let interval = Date().timeIntervalSince(item.timestamp)
-        if interval < 60 {
-            return "just now"
-        } else if interval < 3600 {
-            let minutes = Int(interval / 60)
-            return "\(minutes)m ago"
-        } else if interval < 86400 {
-            let hours = Int(interval / 3600)
-            return "\(hours)h ago"
-        } else {
-            let days = Int(interval / 86400)
-            return "\(days)d ago"
-        }
-    }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 4) {
-                if item.isPinned {
-                    Image(systemName: "pin.fill")
-                        .font(.caption2)
-                        .foregroundColor(.orange)  // Brand color — not themed
-                }
-                Text(previewText)
-                    .lineLimit(1)
-                    .font(.system(size: theme.bodyFontSize, weight: theme.titleFontWeight))
-                    .foregroundColor(isSelected ? theme.selectedText : theme.primaryText)
-
-                Spacer()
-
-                // Pencil icon — always present for hit-testing, opacity-driven visibility
-                Button(action: { onEdit?() }) {
-                    Image(systemName: "pencil")
-                        .font(.caption)
-                        .foregroundColor(isSelected ? theme.selectedText.opacity(0.85) : theme.accentColor)
+        ClipboardBrowserRow(item: item, previewText: previewText, tags: tagInfos,
+                            isSelected: isSelected, isHovered: isHovered) {
+            if let onEdit, (isSelected || isHovered || editFocused) && !isEditing {
+                Button(action: onEdit) {
+                    ClipboardBrowserIcon(symbol: "pencil")
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 5)
+                                .strokeBorder((isSelected ? style.selectedInk : style.muted).opacity(editFocused ? 1 : 0.4),
+                                              lineWidth: editFocused ? 2 : 1)
+                        }
                 }
                 .buttonStyle(.plain)
-                .opacity((isSelected || isHovered) && !isEditing ? 1 : 0)
-            }
-            HStack {
-                if let sourceApp = item.sourceAppDisplayName {
-                    Text(sourceApp)
-                        .font(.caption2)
-                        .foregroundColor(isSelected ? theme.selectedText.opacity(0.75) : theme.secondaryText)
-                }
-                TagBadgesRow(
-                    tags: tagInfos,
-                    isSelected: isSelected,
-                    overflowColor: isSelected ? theme.selectedText.opacity(0.75) : theme.secondaryText
-                )
-                Spacer()
-                Text(relativeTime)
-                    .font(.caption2)
-                    .foregroundColor(isSelected ? theme.selectedText.opacity(0.75) : theme.secondaryText)
+                .focused($editFocused)
+                .help("Edit item")
+                .accessibilityLabel("Edit item")
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 12)
-        .padding(.vertical, theme.itemVerticalPadding)
-        .background(
-            RoundedRectangle(cornerRadius: theme.itemCornerRadius)
-                .fill(isSelected ? theme.itemBackground : isHovered ? theme.primaryText.opacity(0.08) : Color.clear)
-                .padding(.horizontal, 4)
-        )
-        .contentShape(Rectangle())
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
         .onHover { hovering in
             isHovered = hovering
         }

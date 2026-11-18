@@ -12,7 +12,7 @@ final class OverlayPanel: NSPanel {
 
     init() {
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: 640, height: 400),
+            contentRect: NSRect(origin: .zero, size: ClipboardBrowserStyle.overlaySize),
             styleMask: [
                 .nonactivatingPanel,
                 .titled,
@@ -39,6 +39,19 @@ final class OverlayPanel: NSPanel {
         isOpaque = false
         backgroundColor = .clear
         hasShadow = true
+
+        // AppKit adds the hidden titlebar to contentRect, even though the hosted view fills the frame.
+        setFrame(NSRect(origin: .zero, size: ClipboardBrowserStyle.overlaySize), display: false)
+    }
+
+    @discardableResult
+    func host<Content: View>(_ content: Content) -> NSHostingView<Content> {
+        let host = NSHostingView(rootView: content)
+        // Let the panel size the full-bleed host, not AppKit's smaller content layout rect.
+        host.sizingOptions = []
+        host.safeAreaRegions = []
+        contentView = host
+        return host
     }
 
     // CRITICAL: NSPanel defaults canBecomeKey and canBecomeMain to false.
@@ -114,7 +127,7 @@ final class OverlayWindowController {
         let overlayView = ClipboardOverlayView(panel: panel)
             .modelContext(AppServices.shared.modelContainer.mainContext)
             .environment(AppServices.shared.themeManager)
-        panel.contentView = NSHostingView(rootView: overlayView)
+        panel.host(overlayView)
 
         // Observe resignKey notification to restore focus to the previous app.
         NotificationCenter.default.addObserver(
@@ -192,8 +205,8 @@ final class OverlayWindowController {
     private func positionPanel() {
         let size = panel.frame.size
         let panelSize = CGSize(
-            width: size.width > 0 ? size.width : 640,
-            height: size.height > 0 ? size.height : 400
+            width: size.width > 0 ? size.width : ClipboardBrowserStyle.overlaySize.width,
+            height: size.height > 0 ? size.height : ClipboardBrowserStyle.overlaySize.height
         )
         let screens = NSScreen.screens
         let preferred = screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) })
@@ -252,11 +265,4 @@ final class OverlayWindowController {
         hide()
     }
 
-    // MARK: Content Injection
-
-    /// Replaces the panel's content view with a new SwiftUI view.
-    /// Plan 02 calls this to inject the real ClipboardOverlayView.
-    func setContentView<V: View>(_ view: V) {
-        panel.contentView = NSHostingView(rootView: view)
-    }
 }

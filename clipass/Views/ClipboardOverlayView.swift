@@ -5,7 +5,9 @@ struct ClipboardOverlayView: View {
     // Passed in to avoid reaching the controller singleton during NSHostingView initialization.
     unowned let panel: OverlayPanel
     var onCopyAndClose: (String) -> Void = { OverlayWindowController.shared.pasteAndHide(content: $0) }
+    var onDismiss: () -> Void = { OverlayWindowController.shared.hide() }
 
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
     @Environment(ThemeManager.self) private var themeManager
     @Query(sort: \ClipboardItem.timestamp, order: .reverse) private var items: [ClipboardItem]
@@ -14,6 +16,7 @@ struct ClipboardOverlayView: View {
     @FocusState private var focusedArea: ClipboardBrowserState.Focus?
     @State private var revealRequest = UUID()
     @State private var showContent = false
+    @State private var searchHasFocus = false
     @State private var editingItemID: ClipboardItem.ID?
     @State private var editorContent = ""
     @State private var tagLookup: TagLookup = .empty
@@ -67,25 +70,22 @@ struct ClipboardOverlayView: View {
         return text
     }
 
-    @ViewBuilder private var themedDivider: some View {
-        switch theme.dividerStyle {
-        case .standard:
-            Rectangle().fill(theme.dividerColor).frame(height: 1)
-        case .thick:
-            Rectangle().fill(theme.dividerColor).frame(height: 2)
-        case .none:
-            EmptyView()
-        }
+    private var style: ClipboardBrowserStyle {
+        ClipboardBrowserStyle(compact: false, scheme: colorScheme, theme: theme)
     }
 
     var body: some View {
         ZStack {
-            VisualEffectView(
-                backgroundMode: theme.backgroundMode,
-                forceAppearance: theme.forceAppearance,
-                solidColor: NSColor(theme.overlayBackground)
-            )
-            .id(theme.backgroundMode.discriminator)
+            if theme.id == .system {
+                style.surface
+            } else {
+                VisualEffectView(
+                    backgroundMode: theme.backgroundMode,
+                    forceAppearance: theme.forceAppearance,
+                    solidColor: NSColor(theme.overlayBackground)
+                )
+                .id(theme.backgroundMode.discriminator)
+            }
 
             if showContent {
                 contentStack
@@ -93,8 +93,9 @@ struct ClipboardOverlayView: View {
                     .animation(.easeOut(duration: 0.15), value: showContent)
             }
         }
+        .frame(width: ClipboardBrowserStyle.overlaySize.width, height: ClipboardBrowserStyle.overlaySize.height)
         .clipShape(RoundedRectangle(cornerRadius: theme.cornerRadius))
-        .frame(width: 640, height: 400)
+        .environment(\.clipboardBrowserStyle, style)
         .onAppear {
             showContent = true
             refreshTagLookup()
@@ -124,57 +125,27 @@ struct ClipboardOverlayView: View {
     }
 
     private var contentStack: some View {
-        VStack(spacing: 0) {
-            ClipboardBrowserTabs(tab: browser.tab, onSelect: openTab)
-                .padding(.top, 8)
-
-            OverlaySearchField(
-                text: searchText,
-                placeholder: "Search text or tag:work",
-                theme: theme,
-                shouldRefocus: editingItemID == nil && browser.focus == .search,
-                onFocus: {
-                    browser.setFocus(.search)
-                    focusedArea = .search
-                },
-                onArrowUp: editingItemID == nil ? moveSelectionUp : {},
-                onArrowDown: editingItemID == nil ? moveSelectionDown : {},
-                onEscape: {
-                    if editingItemID != nil {
-                        cancelEdit()
-                    } else {
-                        OverlayWindowController.shared.hide()
-                    }
-                },
-                onReturn: editingItemID == nil ? pasteSelected : {}
-            )
-            .frame(height: 44)
-            .padding(.horizontal, 12)
-            .disabled(editingItemID != nil)
-            .opacity(editingItemID != nil ? 0.5 : 1.0)
-            .background(
-                RoundedRectangle(cornerRadius: theme.itemCornerRadius)
-                    .fill(theme.searchFieldBackground)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-            )
-
-            themedDivider
-
+        let results = displayItems
+        let selected = results.first { $0.id == selectedID }
+        return VStack(spacing: 0) {
+            ClipboardBrowserTitleBar(title: "Clipboard history") {
+                Button(action: onDismiss) { ClipboardBrowserIcon(symbol: "xmark") }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(style.muted)
+                    .help("Close clipboard history")
+                    .accessibilityLabel("Close clipboard history")
+            }
+            searchBar
+            ClipboardBrowserTabs(tab: browser.tab, recentCount: items.count,
+                                 pinnedCount: items.filter(\.isPinned).count, onSelect: openTab)
+            ClipboardBrowserSection(tab: browser.tab, isSearching: !browser.query.isEmpty, count: results.count)
             if let emptyState = browser.emptyState {
-                ClipboardBrowserEmptyView(state: emptyState) {
-                    searchText.wrappedValue = ""
-                    browser.setFocus(.search)
-                    focusedArea = .search
-                }
+                ClipboardBrowserEmptyView(state: emptyState, query: browser.query, clearSearch: clearSearch)
             } else {
-                historyList
+                historyList(results)
             }
 
-            themedDivider
-
-            if let editingID = editingItemID,
-               displayItems.contains(where: { $0.id == editingID }) {
+            if let editingID = editingItemID, results.contains(where: { $0.id == editingID }) {
                 InlineEditorPanel(
                     content: $editorContent,
                     theme: theme,
@@ -184,24 +155,52 @@ struct ClipboardOverlayView: View {
                 .frame(height: 160)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             } else {
-                HStack {
-                    Spacer()
-                    Text("\(displayItems.count) item\(displayItems.count == 1 ? "" : "s")")
-                        .font(.caption)
-                        .foregroundColor(theme.secondaryText)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                }
+                ClipboardBrowserFooter(selectedText: selected.map { previewText(for: $0) },
+                                       hasSelection: selected != nil, count: results.count,
+                                       focus: browser.focus, copy: pasteSelected)
             }
         }
         .animation(.easeOut(duration: 0.15), value: editingItemID)
     }
 
-    private var historyList: some View {
+    private var searchBar: some View {
+        ClipboardBrowserSearch(query: browser.query, focused: editingItemID == nil && searchHasFocus, onClear: clearSearch) {
+            OverlaySearchField(
+                text: searchText,
+                placeholder: "Text or tag:work",
+                textColor: theme.id == .system ? style.ink : theme.searchFieldText,
+                placeholderColor: theme.id == .system ? style.muted : theme.searchFieldPlaceholder,
+                fontSize: theme.bodyFontSize,
+                shouldRefocus: editingItemID == nil && browser.focus == .search,
+                onFocus: {
+                    browser.setFocus(.search)
+                    focusedArea = .search
+                },
+                onFocusChange: { searchHasFocus = $0 },
+                onArrowUp: editingItemID == nil ? moveSelectionUp : {},
+                onArrowDown: editingItemID == nil ? moveSelectionDown : {},
+                onEscape: {
+                    if editingItemID != nil { cancelEdit() } else { onDismiss() }
+                },
+                onReturn: editingItemID == nil ? pasteSelected : {}
+            )
+            .frame(height: 20)
+        }
+        .disabled(editingItemID != nil)
+        .opacity(editingItemID != nil ? 0.5 : 1)
+    }
+
+    private func clearSearch() {
+        searchText.wrappedValue = ""
+        browser.setFocus(.search)
+        focusedArea = .search
+    }
+
+    private func historyList(_ results: [ClipboardItem]) -> some View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    ForEach(displayItems) { item in
+                    ForEach(Array(results.enumerated()), id: \.element.id) { index, item in
                         OverlayItemRow(
                             item: item,
                             previewText: previewText(for: item),
@@ -220,10 +219,15 @@ struct ClipboardOverlayView: View {
                             isEditing: item.id == editingItemID,
                             onTagChanged: refreshTagLookup
                         )
+                        .overlay(alignment: .bottom) {
+                            style.rowSeparator(below: index, in: results, selectedID: selectedID)
+                                .allowsHitTesting(false)
+                        }
                         .id(item.id)
                     }
                 }
-                .padding(.vertical, 4)
+                .padding(.horizontal, 8)
+                .padding(.bottom, 4)
             }
             .focusable()
             .focused($focusedArea, equals: .list)

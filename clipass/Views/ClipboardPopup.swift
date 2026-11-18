@@ -25,6 +25,7 @@ struct ClipboardPopup: View {
     }
     @Environment(\.modelContext) private var modelContext
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.colorScheme) private var colorScheme
     @Query(sort: \ClipboardItem.timestamp, order: .reverse)
     private var items: [ClipboardItem]
     @Query private var rules: [TransformRule]
@@ -74,129 +75,37 @@ struct ClipboardPopup: View {
         return text
     }
 
+    private var style: ClipboardBrowserStyle { ClipboardBrowserStyle(compact: true, scheme: colorScheme) }
+
     var body: some View {
-        let _ = perfLog("body eval: items=\(items.count), display=\(displayItems.count), search='\(browser.query)'")
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text("Clipboard History")
-                    .font(.headline)
-                Spacer()
-
-                Button {
-                    openSettingsAndActivate()
-                } label: {
-                    HStack(spacing: 2) {
-                        Image(systemName: "wand.and.stars")
-                        if !rules.isEmpty {
-                            Text("\(rules.count)")
-                                .font(.caption2)
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
-                .help("Transform Rules")
-
-                Button {
-                    openSettingsAndActivate()
-                } label: {
-                    HStack(spacing: 2) {
-                        Image(systemName: "bolt")
-                        if !hooks.isEmpty {
-                            Text("\(hooks.count)")
-                                .font(.caption2)
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
-                .help("Automation Hooks")
+        let results = displayItems
+        let selected = browser.selectedItem
+        let _ = perfLog("body eval: items=\(items.count), display=\(results.count), search='\(browser.query)'")
+        VStack(spacing: 0) {
+            titleBar
+            ClipboardBrowserSearch(query: browser.query, focused: focusedArea == .search, onClear: clearSearch) {
+                TextField("Text or tag:work", text: searchText)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 12))
+                    .foregroundStyle(style.ink)
+                    .accessibilityLabel("Search clipboard")
+                    .focused($focusedArea, equals: .search)
             }
-            .padding()
-
-            ClipboardBrowserTabs(tab: browser.tab, onSelect: openTab)
-
-            TextField("Search text or tag:work", text: searchText)
-                .textFieldStyle(.roundedBorder)
-                .focused($focusedArea, equals: .search)
-                .padding(.horizontal)
-                .padding(.bottom, 8)
-
-            Divider()
-
+            ClipboardBrowserTabs(tab: browser.tab, recentCount: items.count,
+                                 pinnedCount: items.filter(\.isPinned).count, onSelect: openTab)
+            ClipboardBrowserSection(tab: browser.tab, isSearching: !browser.query.isEmpty, count: results.count)
             if let emptyState = browser.emptyState {
-                ClipboardBrowserEmptyView(state: emptyState) {
-                    searchText.wrappedValue = ""
-                    focusedArea = .search
-                }
+                ClipboardBrowserEmptyView(state: emptyState, query: browser.query, clearSearch: clearSearch)
             } else {
-                ScrollViewReader { proxy in
-                    List {
-                        ForEach(displayItems) { item in
-                            HistoryItemRow(
-                                item: item,
-                                previewText: previewText(for: item),
-                                tagInfos: tagLookup.tagsByItem[item.id] ?? [],
-                                allTags: allTags,
-                                redactionPatterns: redactionPatterns,
-                                customActions: customActions,
-                                onDelete: { deleteItem(item) },
-                                onTogglePin: { togglePin(item) },
-                                onTagChanged: refreshTagLookup,
-                                isSelected: browser.selectedID == item.id,
-                                onSelect: {
-                                    browser.selectItem(item.id)
-                                    browser.setFocus(.list)
-                                    focusedArea = .list
-                                }
-                            )
-                            .id(item.id)
-                            .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 2, trailing: 0))
-                        }
-                    }
-                    .listStyle(.plain)
-                    .focused($focusedArea, equals: .list)
-                    .onAppear {
-                        if let id = browser.selectedID { proxy.scrollTo(id) }
-                    }
-                    .onChange(of: revealRequest) { _, _ in
-                        if let id = browser.selectedID {
-                            proxy.scrollTo(id)
-                        }
-                    }
-                }
+                historyList(results)
             }
-
-            Divider()
-
-            HStack {
-                Button("Copy") {
-                    if let item = browser.selectedItem { onCopy(item.content) }
-                }
-                .disabled(browser.selectedItem == nil)
-
-                if !items.isEmpty {
-                    Button("Clear All") {
-                        clearAllItems()
-                    }
-                    .foregroundColor(.red)
-                }
-                Spacer()
-                Button {
-                    openSettingsAndActivate()
-                } label: {
-                    Image(systemName: "gear")
-                }
-                .buttonStyle(.plain)
-                .help("Settings")
-                .keyboardShortcut(",", modifiers: .command)
-
-                Button("Quit") {
-                    NSApplication.shared.terminate(nil)
-                }
-                .keyboardShortcut("q", modifiers: .command)
+            ClipboardBrowserFooter(hasSelection: selected != nil, count: results.count, focus: browser.focus) {
+                if let selected { onCopy(selected.content) }
             }
-            .padding()
         }
-        .frame(width: 300, height: 350)
+        .environment(\.clipboardBrowserStyle, style)
+        .background(style.surface)
+        .frame(width: ClipboardBrowserStyle.popoverSize.width, height: ClipboardBrowserStyle.popoverSize.height)
         .onAppear {
             refreshTagLookup()
         }
@@ -206,6 +115,90 @@ struct ClipboardPopup: View {
         }
         .onChange(of: focusedArea) { _, focus in
             if let focus { browser.setFocus(focus) }
+        }
+    }
+
+    private var titleBar: some View {
+        ClipboardBrowserTitleBar(title: "clipass") {
+            Button(action: openSettingsAndActivate) {
+                ClipboardBrowserIcon(symbol: "wand.and.stars", count: rules.count)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Transform Rules")
+            .help("Transform Rules")
+
+            Button(action: openSettingsAndActivate) {
+                ClipboardBrowserIcon(symbol: "bolt", count: hooks.count)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Automation Hooks")
+            .help("Automation Hooks")
+
+            Menu {
+                Button("Settings", action: openSettingsAndActivate)
+                    .keyboardShortcut(",", modifiers: .command)
+                if !items.isEmpty {
+                    Button("Clear All", role: .destructive, action: clearAllItems)
+                }
+                Divider()
+                Button("Quit clipass") { NSApplication.shared.terminate(nil) }
+                    .keyboardShortcut("q", modifiers: .command)
+            } label: {
+                ClipboardBrowserIcon(symbol: "ellipsis")
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .accessibilityLabel("More actions")
+        }
+        .foregroundStyle(style.muted)
+    }
+
+    private func clearSearch() {
+        searchText.wrappedValue = ""
+        focusedArea = .search
+    }
+
+    private func historyList(_ results: [ClipboardItem]) -> some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(results.enumerated()), id: \.element.id) { index, item in
+                        HistoryItemRow(
+                            item: item,
+                            previewText: previewText(for: item),
+                            tagInfos: tagLookup.tagsByItem[item.id] ?? [],
+                            allTags: allTags,
+                            redactionPatterns: redactionPatterns,
+                            customActions: customActions,
+                            onDelete: { deleteItem(item) },
+                            onTogglePin: { togglePin(item) },
+                            onTagChanged: refreshTagLookup,
+                            isSelected: browser.selectedID == item.id,
+                            onSelect: {
+                                browser.selectItem(item.id)
+                                browser.setFocus(.list)
+                                focusedArea = .list
+                            }
+                        )
+                        .overlay(alignment: .bottom) {
+                            style.rowSeparator(below: index, in: results, selectedID: browser.selectedID)
+                                .allowsHitTesting(false)
+                        }
+                        .id(item.id)
+                    }
+                }
+                .padding(.horizontal, 8)
+                .padding(.bottom, 4)
+            }
+            .focusable()
+            .focused($focusedArea, equals: .list)
+            .onAppear {
+                if let id = browser.selectedID { proxy.scrollTo(id) }
+            }
+            .onChange(of: revealRequest) { _, _ in
+                if let id = browser.selectedID { proxy.scrollTo(id) }
+            }
         }
     }
 
