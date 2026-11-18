@@ -64,6 +64,7 @@ struct ClipboardBrowserState: Equatable {
     private(set) var presentation: Presentation = .list
     private(set) var transientLayer: TransientLayer?
     private(set) var edit: Edit?
+    private(set) var unseenCaptureCount = 0
     private var items: [Item]
 
     init(items: [Item] = []) {
@@ -103,6 +104,10 @@ struct ClipboardBrowserState: Equatable {
 
     mutating func summon(items: [Item]) {
         self = Self(items: items)
+    }
+
+    mutating func noteCapture() {
+        unseenCaptureCount += 1
     }
 
     mutating func replaceItems(_ items: [Item]) {

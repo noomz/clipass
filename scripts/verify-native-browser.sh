@@ -28,10 +28,15 @@ entry = '@main\nstruct clipassApp: App {'
 if source.count(entry) != 1:
     raise SystemExit('App entry point changed; update the native check harness.')
 app.write_text(source.split(entry)[0])
-shutil.copy2(root / 'scripts/native-browser/NativeBrowserChecks.swift', work / 'clipass/NativeBrowserChecks.swift')
+for source in (root / 'scripts/native-browser').glob('*.swift'):
+    shutil.copy2(source, work / 'clipass' / source.name)
 PY
 printf 'Isolated native check workspace: %s\n' "$WORK"
 sdk=$(xcrun --sdk macosx --show-sdk-version)
 min_macos=$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$ROOT/clipass/Info.plist")
-swift run --package-path "$WORK" \
+CLIPASS_CHECK_REAL_POPOVER=0 swift run --package-path "$WORK" \
     -Xlinker -platform_version -Xlinker macos -Xlinker "$min_macos" -Xlinker "$sdk" clipass
+if [[ "${CLIPASS_CHECK_REAL_POPOVER:-0}" == 1 ]]; then
+    CLIPASS_CHECK_MANUAL_POPOVER=1 CLIPASS_CHECK_MANUAL_SCROLL=1 \
+        swift run --skip-build --package-path "$WORK" clipass
+fi

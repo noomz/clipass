@@ -36,6 +36,8 @@ struct ClipboardPopup: View {
     @State private var browser = ClipboardBrowserState()
     @FocusState private var focusedArea: ClipboardBrowserState.Focus?
     @State private var revealRequest = UUID()
+    @State private var scrollAnchor: UUID?
+    @State private var isVisible = false
     @State private var tagLookup: TagLookup = .empty
     @State private var previewCache: [UUID: String] = [:]
 
@@ -66,6 +68,14 @@ struct ClipboardPopup: View {
     private func refreshTagLookup() {
         tagLookup = TagLookup.build(from: modelContext)
         browser.replaceItems(browserItems)
+    }
+
+    private func summon() {
+        tagLookup = TagLookup.build(from: modelContext)
+        browser.summon(items: browserItems)
+        focusedArea = .search
+        scrollAnchor = browser.selectedID
+        revealRequest = UUID()
     }
 
     private func previewText(for item: ClipboardItem) -> String {
@@ -99,15 +109,23 @@ struct ClipboardPopup: View {
             } else {
                 historyList(results)
             }
-            ClipboardBrowserFooter(hasSelection: selected != nil, count: results.count, focus: browser.focus) {
-                if let selected { onCopy(selected.content) }
-            }
+            ClipboardBrowserFooter(hasSelection: selected != nil, count: results.count, focus: browser.focus,
+                                   copy: { if let selected { onCopy(selected.content) } },
+                                   unseenCaptureCount: browser.unseenCaptureCount, jumpToLatest: summon)
         }
         .environment(\.clipboardBrowserStyle, style)
         .background(style.surface)
         .frame(width: ClipboardBrowserStyle.popoverSize.width, height: ClipboardBrowserStyle.popoverSize.height)
-        .onAppear {
-            refreshTagLookup()
+        .background {
+            ClipboardPopupPresence { visible in
+                isVisible = visible
+                if visible { summon() }
+            }
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
+        .onReceive(monitor.captures) {
+            if isVisible { browser.noteCapture() }
         }
         .onChange(of: browserItems) { _, snapshots in
             previewCache = [:]
@@ -190,14 +208,16 @@ struct ClipboardPopup: View {
                 }
                 .padding(.horizontal, 8)
                 .padding(.bottom, 4)
+                .scrollTargetLayout()
             }
+            .scrollPosition(id: $scrollAnchor, anchor: .top)
             .focusable()
             .focused($focusedArea, equals: .list)
             .onAppear {
-                if let id = browser.selectedID { proxy.scrollTo(id) }
+                if let id = browser.selectedID { proxy.scrollTo(id, anchor: .top) }
             }
             .onChange(of: revealRequest) { _, _ in
-                if let id = browser.selectedID { proxy.scrollTo(id) }
+                if let id = browser.selectedID { proxy.scrollTo(id, anchor: .top) }
             }
         }
     }

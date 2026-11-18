@@ -19,7 +19,7 @@ struct OverlaySearchField: NSViewRepresentable {
     var textColor: Color
     var placeholderColor: Color
     var fontSize: CGFloat
-    var shouldRefocus: Bool = true  // when true, re-requests first-responder on next update
+    let focusRequest: UUID
     var onFocus: () -> Void = {}
     var onFocusChange: (Bool) -> Void = { _ in }
     var onArrowUp: () -> Void = {}
@@ -46,13 +46,6 @@ struct OverlaySearchField: NSViewRepresentable {
 
         applyStyle(to: field)
 
-        // Request first-responder status once the view is installed in a window.
-        // Using asyncAfter(0) defers until the runloop tick after the hosting view
-        // has been inserted into the NSPanel's view hierarchy.
-        DispatchQueue.main.async {
-            field.window?.makeFirstResponder(field)
-        }
-
         return field
     }
 
@@ -72,16 +65,14 @@ struct OverlaySearchField: NSViewRepresentable {
 
         applyStyle(to: nsView)
 
-        // Restore focus to the search field when transitioning from editing back to normal mode.
-        // Only re-request first-responder when shouldRefocus is true and the field doesn't already hold it.
-        if shouldRefocus {
-            DispatchQueue.main.async {
-                guard let window = nsView.window else { return }
-                let isFirstResponder = window.firstResponder == nsView.currentEditor()
-                    || window.firstResponder == nsView
-                if !isFirstResponder {
-                    window.makeFirstResponder(nsView)
-                }
+        let coordinator = context.coordinator
+        guard coordinator.lastFocusRequest != focusRequest else { return }
+        let request = focusRequest
+        coordinator.lastFocusRequest = request
+        DispatchQueue.main.async { [weak nsView, weak coordinator] in
+            guard let nsView, let window = nsView.window, coordinator?.lastFocusRequest == request else { return }
+            if window.firstResponder !== nsView && window.firstResponder !== nsView.currentEditor() {
+                window.makeFirstResponder(nsView)
             }
         }
     }
@@ -114,6 +105,7 @@ struct OverlaySearchField: NSViewRepresentable {
 
     final class Coordinator: NSObject, NSTextFieldDelegate {
         var parent: OverlaySearchField
+        var lastFocusRequest: UUID?
 
         init(_ parent: OverlaySearchField) {
             self.parent = parent

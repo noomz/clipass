@@ -79,6 +79,37 @@ final class ClipboardBrowserStateTests: XCTestCase {
         XCTAssertEqual(state.visibleItems, [])
     }
 
+    func testV4CapturePreservesBrowsingAndJumpUsesSummonTarget() {
+        var state = State(items: items)
+        state.openTab(.pinned)
+        state.setQuery("tag:work")
+        state.selectItem(oldPin.id)
+        state.setFocus(.list)
+        let recopy = State.Item(id: pinnedMatch.id, content: pinnedMatch.content,
+                                timestamp: Date(timeIntervalSince1970: 100), isPinned: true,
+                                tagNames: pinnedMatch.tagNames)
+        let updated = [oldPin, newest, middle, recopy]
+
+        state.replaceItems(updated)
+        state.noteCapture()
+        state.noteCapture()
+
+        XCTAssertEqual(state.tab, .pinned)
+        XCTAssertEqual(state.query, "tag:work")
+        XCTAssertEqual(state.selectedID, oldPin.id)
+        XCTAssertEqual(state.focus, .list)
+        XCTAssertEqual(state.visibleItems.map(\.id), [recopy.id, oldPin.id])
+        XCTAssertEqual(state.unseenCaptureCount, 2)
+
+        state.summon(items: updated)
+
+        XCTAssertEqual(state.tab, .recent)
+        XCTAssertEqual(state.query, "")
+        XCTAssertEqual(state.selectedID, recopy.id)
+        XCTAssertEqual(state.focus, .search)
+        XCTAssertEqual(state.unseenCaptureCount, 0)
+    }
+
     func testV3RecentIncludesPinsInCopyTimeOrder() {
         let state = State(items: items)
 

@@ -2,16 +2,71 @@ import SwiftUI
 import SwiftData
 import AppKit
 
+@MainActor
+struct NativeBrowserCheckApp: App {
+    @NSApplicationDelegateAdaptor(NativeBrowserChecks.CheckAppDelegate.self) private var delegate
+
+    var body: some Scene {
+        MenuBarExtra {
+            ClipboardPopup(monitor: NativeBrowserChecks.popoverFixture.monitor,
+                           onCopy: { NativeBrowserChecks.popoverFixture.copied = $0 })
+                .modelContext(NativeBrowserChecks.popoverFixture.context)
+                .background { NativeBrowserChecks.PopoverProbe() }
+        } label: {
+            Text("Clipass T3")
+        }
+        .menuBarExtraStyle(.window)
+    }
+}
+
 @main
 @MainActor
 struct NativeBrowserChecks {
+    static let popoverFixture = try! CaptureFixture()
+    static let usesRealPopover = ProcessInfo.processInfo.environment["CLIPASS_CHECK_REAL_POPOVER"] == "1"
+    static let manualPopover = ProcessInfo.processInfo.environment["CLIPASS_CHECK_MANUAL_POPOVER"] == "1"
+    static weak var popoverProbe: NSView?
+
+    struct PopoverProbe: NSViewRepresentable {
+        func makeNSView(context: Context) -> NSView {
+            let probe = NSView()
+            NativeBrowserChecks.popoverProbe = probe
+            return probe
+        }
+
+        func updateNSView(_ probe: NSView, context: Context) {}
+    }
+
+    static func main() {
+        if usesRealPopover {
+            NativeBrowserCheckApp.main()
+        } else {
+            let app = NSApplication.shared
+            app.setActivationPolicy(.regular)
+            let delegate = CheckAppDelegate()
+            app.delegate = delegate
+            withExtendedLifetime(delegate) { app.run() }
+        }
+    }
+
     final class CheckAppDelegate: NSObject, NSApplicationDelegate {
         func applicationDidFinishLaunching(_ notification: Notification) {
+            NSApp.setActivationPolicy(.regular)
+            let timeout = manualPopover ? 600 : 55
+            DispatchQueue.global().asyncAfter(deadline: .now() + .seconds(timeout)) {
+                fputs("FAIL: native checks exceeded \(timeout) seconds\n", stderr)
+                exit(2)
+            }
             Task { @MainActor in
                 do {
+                    if usesRealPopover {
+                        try await exerciseSummon(isOverlay: false)
+                        exit(0)
+                    }
                     try renderTabs()
                     try await exerciseInterface(isOverlay: false)
                     try await exerciseInterface(isOverlay: true)
+                    try await exerciseSummon(isOverlay: true)
                     if let fixturePath = ProcessInfo.processInfo.environment["CLIPASS_PARITY_FIXTURE"] {
                         let fixture = try Data(contentsOf: URL(fileURLWithPath: fixturePath))
                         let entries = try JSONDecoder().decode([FixtureEntry].self, from: fixture)
@@ -30,18 +85,6 @@ struct NativeBrowserChecks {
 
     struct Failure: Error, CustomStringConvertible {
         let description: String
-    }
-
-    static func main() {
-        let app = NSApplication.shared
-        app.setActivationPolicy(.regular)
-        DispatchQueue.global().asyncAfter(deadline: .now() + 30) {
-            fputs("FAIL: native checks exceeded 30 seconds\n", stderr)
-            exit(2)
-        }
-        let delegate = CheckAppDelegate()
-        app.delegate = delegate
-        withExtendedLifetime(delegate) { app.run() }
     }
 
     static func expect(_ condition: @autoclosure () -> Bool, _ message: String) throws {
@@ -150,10 +193,7 @@ struct NativeBrowserChecks {
             throw Failure(description: "\(name): no native history scroll view")
         }
         let clip = scroll.contentView
-        let bottom = document.isFlipped ? document.frame.maxY - clip.bounds.height : document.frame.minY
-        clip.scroll(to: clip.constrainBoundsRect(NSRect(origin: NSPoint(x: clip.bounds.minX, y: bottom),
-                                                        size: clip.bounds.size)).origin)
-        scroll.reflectScrolledClipView(clip)
+        scrollToBottom(scroll, document: document)
         try await settle()
         let viewport = window.convertToScreen(clip.convert(clip.bounds, to: nil))
         let scrolledFrame = try? textFrame("Newest work notes", in: host)
@@ -233,7 +273,8 @@ struct NativeBrowserChecks {
         try capture(host, name: "\(name)-b-no-matches")
     }
 
-    static func showInterface(isOverlay: Bool, context: ModelContext, onCopy: @escaping (String) -> Void)
+    static func showInterface(isOverlay: Bool, context: ModelContext,
+                              monitor: ClipboardMonitor = ClipboardMonitor(), onCopy: @escaping (String) -> Void)
         -> (NSHostingView<AnyView>, NSWindow) {
         let panel = OverlayPanel()
         panel.shownAt = .distantFuture
@@ -241,10 +282,10 @@ struct NativeBrowserChecks {
         if isOverlay {
             let themes = ThemeManager()
             themes.current = Theme.themes[.system]!
-            root = AnyView(ClipboardOverlayView(panel: panel, onCopyAndClose: onCopy, onDismiss: { panel.orderOut(nil) })
+            root = AnyView(ClipboardOverlayView(panel: panel, monitor: monitor, onCopyAndClose: onCopy, onDismiss: { panel.orderOut(nil) })
                 .environment(themes).modelContext(context))
         } else {
-            root = AnyView(ClipboardPopup(monitor: ClipboardMonitor(), onCopy: onCopy).modelContext(context))
+            root = AnyView(ClipboardPopup(monitor: monitor, onCopy: onCopy).modelContext(context))
         }
         let host = isOverlay ? panel.host(root) : NSHostingView(rootView: root)
         let window = isOverlay ? panel : CheckPopoverWindow(
@@ -254,9 +295,18 @@ struct NativeBrowserChecks {
         window.isReleasedWhenClosed = false
         window.appearance = NSAppearance(named: .aqua)
         if !isOverlay { window.contentView = host }
-        window.makeKeyAndOrderFront(nil)
+        window.center()
         NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
         return (host, window)
+    }
+
+    static func scrollToBottom(_ scroll: NSScrollView, document: NSView) {
+        let clip = scroll.contentView
+        let bottom = document.isFlipped ? document.frame.maxY - clip.bounds.height : document.frame.minY
+        let proposed = NSRect(origin: NSPoint(x: clip.bounds.minX, y: bottom), size: clip.bounds.size)
+        clip.scroll(to: clip.constrainBoundsRect(proposed).origin)
+        scroll.reflectScrolledClipView(clip)
     }
 
     static func waitForInterface(_ host: NSView) async throws {
@@ -315,7 +365,7 @@ struct NativeBrowserChecks {
                                                 eventNumber: 1, clickCount: 1, pressure: 1) else {
                 throw Failure(description: "Could not create native row click")
             }
-            NSApp.postEvent(event, atStart: false)
+            window.sendEvent(event)
         }
     }
 

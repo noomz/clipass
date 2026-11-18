@@ -54,6 +54,12 @@ final class OverlayPanel: NSPanel {
         return host
     }
 
+    func summon() {
+        shownAt = Date()
+        NotificationCenter.default.post(name: .overlayWillShow, object: self)
+        makeKeyAndOrderFront(nil)
+    }
+
     // CRITICAL: NSPanel defaults canBecomeKey and canBecomeMain to false.
     // Without these overrides the panel cannot receive keyboard events or host @FocusState.
     override var canBecomeKey: Bool { true }
@@ -93,6 +99,7 @@ final class OverlayPanel: NSPanel {
 // MARK: - Notification name
 
 extension Notification.Name {
+    static let overlayWillShow = Notification.Name("overlayWillShow")
     static let overlayDidResignKey = Notification.Name("overlayDidResignKey")
 }
 
@@ -124,7 +131,7 @@ final class OverlayWindowController {
         panel = OverlayPanel()
 
         // Inject the real overlay UI with model context and theme from AppServices.
-        let overlayView = ClipboardOverlayView(panel: panel)
+        let overlayView = ClipboardOverlayView(panel: panel, monitor: AppServices.shared.clipboardMonitor)
             .modelContext(AppServices.shared.modelContainer.mainContext)
             .environment(AppServices.shared.themeManager)
         panel.host(overlayView)
@@ -182,16 +189,7 @@ final class OverlayWindowController {
 
         positionPanel()
 
-        panel.shownAt = Date()
-
-        // Post notification BEFORE makeKeyAndOrderFront so the view resets its state
-        // (clears search text, re-selects first item, re-focuses search field).
-        NotificationCenter.default.post(name: Notification.Name("overlayWillShow"), object: nil)
-
-        panel.makeKeyAndOrderFront(nil)
-
-        // Focus is handled by OverlaySearchField.makeNSView() via DispatchQueue.main.async
-        // calling window?.makeFirstResponder(field). No additional fallback needed here.
+        panel.summon()
     }
 
     func hide() {

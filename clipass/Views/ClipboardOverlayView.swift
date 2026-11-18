@@ -4,6 +4,7 @@ import SwiftData
 struct ClipboardOverlayView: View {
     // Passed in to avoid reaching the controller singleton during NSHostingView initialization.
     unowned let panel: OverlayPanel
+    let monitor: ClipboardMonitor
     var onCopyAndClose: (String) -> Void = { OverlayWindowController.shared.pasteAndHide(content: $0) }
     var onDismiss: () -> Void = { OverlayWindowController.shared.hide() }
 
@@ -15,8 +16,10 @@ struct ClipboardOverlayView: View {
     @State private var browser = ClipboardBrowserState()
     @FocusState private var focusedArea: ClipboardBrowserState.Focus?
     @State private var revealRequest = UUID()
+    @State private var scrollAnchor: UUID?
     @State private var showContent = false
     @State private var searchHasFocus = false
+    @State private var searchFocusRequest = UUID()
     @State private var editingItemID: ClipboardItem.ID?
     @State private var editorContent = ""
     @State private var tagLookup: TagLookup = .empty
@@ -53,6 +56,7 @@ struct ClipboardOverlayView: View {
         editingItemID = nil
         editorContent = ""
         focusedArea = browser.focus
+        if browser.focus == .search { searchFocusRequest = UUID() }
         revealRequest = UUID()
     }
 
@@ -61,6 +65,18 @@ struct ClipboardOverlayView: View {
         browser.replaceItems(browserItems)
         let descriptor = FetchDescriptor<Tag>(sortBy: [SortDescriptor(\.name)])
         allTags = (try? modelContext.fetch(descriptor)) ?? []
+    }
+
+    private func summon() {
+        editingItemID = nil
+        editorContent = ""
+        previewCache = [:]
+        refreshTagLookup()
+        browser.summon(items: browserItems)
+        focusedArea = .search
+        searchFocusRequest = UUID()
+        scrollAnchor = browser.selectedID
+        revealRequest = UUID()
     }
 
     private func previewText(for item: ClipboardItem) -> String {
@@ -98,7 +114,7 @@ struct ClipboardOverlayView: View {
         .environment(\.clipboardBrowserStyle, style)
         .onAppear {
             showContent = true
-            refreshTagLookup()
+            summon()
             panel.cancelEditHandler = {
                 if self.editingItemID != nil {
                     self.cancelEdit()
@@ -107,13 +123,11 @@ struct ClipboardOverlayView: View {
                 return false
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("overlayWillShow"))) { _ in
-            browser.setQuery("")
-            editingItemID = nil
-            editorContent = ""
-            showContent = true
-            previewCache = [:]
-            refreshTagLookup()
+        .onReceive(NotificationCenter.default.publisher(for: .overlayWillShow, object: panel)) { _ in
+            summon()
+        }
+        .onReceive(monitor.captures) {
+            if panel.isVisible { browser.noteCapture() }
         }
         .onChange(of: browserItems) { _, snapshots in
             previewCache = [:]
@@ -157,7 +171,8 @@ struct ClipboardOverlayView: View {
             } else {
                 ClipboardBrowserFooter(selectedText: selected.map { previewText(for: $0) },
                                        hasSelection: selected != nil, count: results.count,
-                                       focus: browser.focus, copy: pasteSelected)
+                                       focus: browser.focus, copy: pasteSelected,
+                                       unseenCaptureCount: browser.unseenCaptureCount, jumpToLatest: summon)
             }
         }
         .animation(.easeOut(duration: 0.15), value: editingItemID)
@@ -171,7 +186,7 @@ struct ClipboardOverlayView: View {
                 textColor: theme.id == .system ? style.ink : theme.searchFieldText,
                 placeholderColor: theme.id == .system ? style.muted : theme.searchFieldPlaceholder,
                 fontSize: theme.bodyFontSize,
-                shouldRefocus: editingItemID == nil && browser.focus == .search,
+                focusRequest: searchFocusRequest,
                 onFocus: {
                     browser.setFocus(.search)
                     focusedArea = .search
@@ -194,6 +209,7 @@ struct ClipboardOverlayView: View {
         searchText.wrappedValue = ""
         browser.setFocus(.search)
         focusedArea = .search
+        searchFocusRequest = UUID()
     }
 
     private func historyList(_ results: [ClipboardItem]) -> some View {
@@ -228,7 +244,9 @@ struct ClipboardOverlayView: View {
                 }
                 .padding(.horizontal, 8)
                 .padding(.bottom, 4)
+                .scrollTargetLayout()
             }
+            .scrollPosition(id: $scrollAnchor, anchor: .top)
             .focusable()
             .focused($focusedArea, equals: .list)
             .onKeyPress(.return) {
@@ -244,13 +262,13 @@ struct ClipboardOverlayView: View {
                 }
             }
             .onAppear {
-                if let id = selectedID { proxy.scrollTo(id) }
+                if let id = selectedID { proxy.scrollTo(id, anchor: .top) }
             }
             .onChange(of: revealRequest) { _, _ in
-                if let id = selectedID { proxy.scrollTo(id) }
+                if let id = selectedID { proxy.scrollTo(id, anchor: .top) }
             }
             .onChange(of: selectedID) { _, newID in
-                if let id = newID {
+                if let id = newID, id != scrollAnchor {
                     withAnimation(.linear(duration: 0.1)) {
                         proxy.scrollTo(id, anchor: nil)
                     }

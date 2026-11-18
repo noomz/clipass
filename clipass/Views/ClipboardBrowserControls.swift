@@ -145,9 +145,9 @@ struct ClipboardBrowserTabs: View {
         return Button {
             onSelect(value)
         } label: {
-            HStack(spacing: 8) {
+            HStack(spacing: style.compact ? 5 : 8) {
                 if value == .pinned { Image(systemName: "pin") }
-                Text(title).fontWeight(.medium)
+                Text(title).fontWeight(.medium).fixedSize(horizontal: true, vertical: false)
                 Text(count, format: .number).monospacedDigit().font(.system(size: 10))
                     .foregroundStyle(style.muted)
                 Spacer(minLength: 0)
@@ -198,6 +198,8 @@ struct ClipboardBrowserFooter: View {
     let count: Int
     let focus: ClipboardBrowserState.Focus
     let copy: () -> Void
+    var unseenCaptureCount = 0
+    var jumpToLatest: () -> Void = {}
     @Environment(\.clipboardBrowserStyle) private var style
     @FocusState private var copyFocused: Bool
 
@@ -205,7 +207,20 @@ struct ClipboardBrowserFooter: View {
         VStack(spacing: 0) {
             style.separator()
             HStack(spacing: 8) {
-                if !style.compact, let selectedText {
+                if unseenCaptureCount > 0 {
+                    Button(action: jumpToLatest) {
+                        Text("\(unseenCaptureCount) new · Jump to latest")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(style.ink)
+                            .padding(.horizontal, 8)
+                            .frame(height: 28)
+                            .background(style.searchFill, in: RoundedRectangle(cornerRadius: 6))
+                            .overlay { RoundedRectangle(cornerRadius: 6).strokeBorder(style.controlBorder) }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Jump to latest")
+                    .accessibilityValue("\(unseenCaptureCount) new \(unseenCaptureCount == 1 ? "item" : "items")")
+                } else if !style.compact, let selectedText {
                     Text(selectedText)
                         .font(.system(size: 11))
                         .foregroundStyle(style.muted)
