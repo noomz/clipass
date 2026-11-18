@@ -15,8 +15,6 @@ struct HistoryItemRow: View {
     var onSelect: () -> Void
     var onPreview: () -> Void
 
-    @Environment(\.modelContext) private var modelContext
-
     @State private var isHovered = false
 
     var body: some View {
@@ -31,51 +29,51 @@ struct HistoryItemRow: View {
             isHovered = hovering
         }
         .overlay {
-            // Invisible right-click target — builds NSMenu on demand, not during body eval
-            RightClickReceiver {
-                buildContextMenu()
-            }
+            ClipboardItemMenu(item: item, tagInfos: tagInfos, allTags: allTags, customActions: customActions,
+                              onDelete: onDelete, onTogglePin: onTogglePin, onTagChanged: onTagChanged)
         }
     }
+}
 
-    // MARK: - NSMenu (built on-demand, not during SwiftUI body evaluation)
+struct ClipboardItemMenu: View {
+    @Environment(\.modelContext) private var modelContext
+
+    let item: ClipboardItem
+    let tagInfos: [TagInfo]
+    let allTags: [Tag]
+    let customActions: [ContextAction]
+    let onDelete: () -> Void
+    let onTogglePin: () -> Void
+    let onTagChanged: (() -> Void)?
+    var popupTags = true
+
+    var body: some View {
+        RightClickReceiver(menuBuilder: buildContextMenu)
+    }
 
     private func buildContextMenu() -> NSMenu {
         let menu = NSMenu()
 
         // Primary actions
-        menu.addItem(NSMenuItem(title: "Copy", action: nil, keyEquivalent: "").configured {
-            $0.representedObject = { copyToClipboard() } as () -> Void
-            $0.target = ContextMenuActionTarget.shared
-            $0.action = #selector(ContextMenuActionTarget.performAction(_:))
-        })
-
-        menu.addItem(NSMenuItem(title: item.isPinned ? "Unpin" : "Pin", action: nil, keyEquivalent: "").configured {
-            $0.representedObject = { [onTogglePin] in onTogglePin() } as () -> Void
-            $0.target = ContextMenuActionTarget.shared
-            $0.action = #selector(ContextMenuActionTarget.performAction(_:))
-        })
+        addAction(to: menu, title: "Copy") { copyTransformed(item.content) }
+        addAction(to: menu, title: item.isPinned ? "Unpin" : "Pin", action: onTogglePin)
 
         menu.addItem(.separator())
 
-        // Tag assignment (flat buttons — MenuBarExtra submenu bug)
+        // MenuBarExtra needs flat tag actions; the modal keeps its tag submenu.
+        let tagMenu = popupTags ? menu : NSMenu()
+        if !popupTags {
+            let parent = NSMenuItem(title: "Tag as...", action: nil, keyEquivalent: "")
+            parent.submenu = tagMenu
+            menu.addItem(parent)
+        }
         for tag in allTags {
             let isTagged = tagInfos.contains { $0.id == tag.id }
-            let title = isTagged ? "\u{2713} \(tag.name)" : "    \(tag.name)"
-            menu.addItem(NSMenuItem(title: title, action: nil, keyEquivalent: "").configured {
-                $0.representedObject = { [weak tag, weak item] in
-                    guard let tag, let item else { return }
-                    toggleTag(tag, on: item)
-                } as () -> Void
-                $0.target = ContextMenuActionTarget.shared
-                $0.action = #selector(ContextMenuActionTarget.performAction(_:))
-            })
+            let title = popupTags ? (isTagged ? "✓ \(tag.name)" : "    \(tag.name)") : tag.name
+            let action = addAction(to: tagMenu, title: title) { toggleTag(tag, on: item) }
+            if !popupTags { action.state = isTagged ? .on : .off }
         }
-        menu.addItem(NSMenuItem(title: "+ New Tag...", action: nil, keyEquivalent: "").configured {
-            $0.representedObject = { presentNewTagAlert() } as () -> Void
-            $0.target = ContextMenuActionTarget.shared
-            $0.action = #selector(ContextMenuActionTarget.performAction(_:))
-        })
+        addAction(to: tagMenu, title: "+ New Tag...", action: presentNewTagAlert)
 
         menu.addItem(.separator())
 
@@ -84,7 +82,8 @@ struct HistoryItemRow: View {
         let copyAsItem = NSMenuItem(title: "Copy As...", action: nil, keyEquivalent: "")
         copyAsItem.submenu = copyAsSubmenu
 
-        addAction(to: copyAsSubmenu, title: "UPPERCASE") { copyTransformed(item.content.uppercased()) }
+        addAction(to: copyAsSubmenu, title: "Plain Text") { copyTransformed(item.content) }
+        addAction(to: copyAsSubmenu, title: "Uppercase") { copyTransformed(item.content.uppercased()) }
         addAction(to: copyAsSubmenu, title: "lowercase") { copyTransformed(item.content.lowercased()) }
         addAction(to: copyAsSubmenu, title: "Trimmed") { copyTransformed(item.content.trimmingCharacters(in: .whitespacesAndNewlines)) }
         copyAsSubmenu.addItem(.separator())
@@ -156,12 +155,14 @@ struct HistoryItemRow: View {
         return menu
     }
 
-    private func addAction(to menu: NSMenu, title: String, action: @escaping () -> Void) {
+    @discardableResult
+    private func addAction(to menu: NSMenu, title: String, action: @escaping () -> Void) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
         item.representedObject = action as () -> Void
         item.target = ContextMenuActionTarget.shared
         item.action = #selector(ContextMenuActionTarget.performAction(_:))
         menu.addItem(item)
+        return item
     }
 
     // MARK: - Tag Actions
@@ -202,11 +203,6 @@ struct HistoryItemRow: View {
 
     // MARK: - Actions
 
-    private func copyToClipboard() {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(item.content, forType: .string)
-    }
-
     private func copyTransformed(_ text: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
@@ -237,15 +233,6 @@ struct HistoryItemRow: View {
         NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 
-}
-
-// MARK: - NSMenuItem builder helper
-
-private extension NSMenuItem {
-    func configured(_ configure: (NSMenuItem) -> Void) -> NSMenuItem {
-        configure(self)
-        return self
-    }
 }
 
 // MARK: - Singleton target for NSMenu action dispatch

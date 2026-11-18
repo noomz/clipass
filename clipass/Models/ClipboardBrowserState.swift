@@ -211,6 +211,7 @@ struct ClipboardBrowserState: Equatable {
         isComposing: Bool = false
     ) -> ActionResult {
         guard isActiveInterface, !isComposing else { return .unhandled }
+        if transientLayer == .confirmation, action != .back { return .unhandled }
         switch action {
         case .openTab(let tab):
             openTab(tab)

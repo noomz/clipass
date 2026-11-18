@@ -132,6 +132,8 @@ struct ClipboardPopup: View {
                                    unseenCaptureCount: browser.unseenCaptureCount, jumpToLatest: summon)
         }
         .clipboardShortcutHelp(isPresented: browser.transientLayer == .help, close: closeHelp)
+        .modifier(ClipboardBrowserHistoryControls(isConfirming: browser.transientLayer == .confirmation,
+                                                  dismissConfirmation: dismissConfirmation, historyChanged: refreshTagLookup))
         .background { ClipboardBrowserKeyboard(focus: contentFocus, action: handleKey) }
         .environment(\.clipboardBrowserStyle, style)
         .background(style.surface)
@@ -148,7 +150,11 @@ struct ClipboardPopup: View {
             if isVisible { browser.noteCapture() }
         }
         .onChange(of: browserItems) { _, snapshots in
+            let selectedID = browser.selectedID
+            let focus = browser.focus
             browser.replaceItems(snapshots)
+            if selectedID != browser.selectedID { revealRequest = UUID() }
+            if focus != browser.focus { applyBrowserFocus() }
         }
     }
 
@@ -186,22 +192,13 @@ struct ClipboardPopup: View {
             .accessibilityLabel("Automation Hooks")
             .help("Automation Hooks")
 
-            Menu {
+            ClipboardBrowserOverflow(canClear: items.contains { !$0.isPinned }, confirmClear: confirmClear) {
                 Button("Settings", action: openSettingsAndActivate)
                     .keyboardShortcut(",", modifiers: .command)
-                if !items.isEmpty {
-                    Button("Clear All", role: .destructive, action: clearAllItems)
-                }
-                Divider()
                 Button("Quit clipass") { NSApplication.shared.terminate(nil) }
                     .keyboardShortcut("q", modifiers: .command)
-            } label: {
-                ClipboardBrowserIcon(symbol: "ellipsis")
+                Divider()
             }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
-            .fixedSize()
-            .accessibilityLabel("More actions")
         }
         .foregroundStyle(style.muted)
     }
@@ -272,11 +269,14 @@ struct ClipboardPopup: View {
 
     private func deleteItem(_ item: ClipboardItem) {
         modelContext.delete(item)
+        try? modelContext.save()
     }
 
-    private func clearAllItems() {
-        for item in items {
-            modelContext.delete(item)
-        }
+    private func confirmClear() {
+        browser.showLayer(.confirmation)
+        focusedArea = nil
+        searchFocusRequest = .init(intent: .resign)
     }
+
+    private func dismissConfirmation() { _ = handleKey(.back, focus: .control) }
 }

@@ -52,7 +52,7 @@ struct NativeBrowserChecks {
     final class CheckAppDelegate: NSObject, NSApplicationDelegate {
         func applicationDidFinishLaunching(_ notification: Notification) {
             NSApp.setActivationPolicy(.regular)
-            let timeout = manualPopover ? 600 : 55
+            let timeout = manualPopover ? 600 : 75
             DispatchQueue.global().asyncAfter(deadline: .now() + .seconds(timeout)) {
                 fputs("FAIL: native checks exceeded \(timeout) seconds\n", stderr)
                 exit(2)
@@ -70,6 +70,8 @@ struct NativeBrowserChecks {
                     try await exerciseKeyboard(isOverlay: true)
                     try await exercisePreview(isOverlay: false)
                     try await exercisePreview(isOverlay: true)
+                    try await exerciseHistoryActions(isOverlay: false)
+                    try await exerciseHistoryActions(isOverlay: true)
                     try await exerciseSummon(isOverlay: true)
                     if let fixturePath = ProcessInfo.processInfo.environment["CLIPASS_PARITY_FIXTURE"] {
                         let fixture = try Data(contentsOf: URL(fileURLWithPath: fixturePath))

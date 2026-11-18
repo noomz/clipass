@@ -13,6 +13,7 @@ struct ClipboardOverlayView: View {
     @Environment(ThemeManager.self) private var themeManager
     @Query(sort: \ClipboardItem.timestamp, order: .reverse) private var items: [ClipboardItem]
     @Query private var redactionPatterns: [RedactionPattern]
+    @Query(sort: \ContextAction.order) private var customActions: [ContextAction]
     @AppStorage("previewMaxLength") private var previewMaxLength = 80
 
     @State private var browser = ClipboardBrowserState()
@@ -148,7 +149,9 @@ struct ClipboardOverlayView: View {
             if panel.isVisible { browser.noteCapture() }
         }
         .onChange(of: browserItems) { _, snapshots in
+            let focus = browser.focus
             browser.replaceItems(snapshots)
+            if focus != browser.focus { applyBrowserFocus() }
         }
     }
 
@@ -176,6 +179,8 @@ struct ClipboardOverlayView: View {
         let isPreviewing = browser.presentation == .preview
         return VStack(spacing: 0) {
             ClipboardBrowserTitleBar(title: "Clipboard history") {
+                ClipboardBrowserOverflow(canClear: items.contains { !$0.isPinned }, confirmClear: confirmClear) {}
+                    .disabled(editingItemID != nil)
                 Button(action: onDismiss) { ClipboardBrowserIcon(symbol: "xmark") }
                     .buttonStyle(.plain)
                     .foregroundStyle(style.muted)
@@ -212,6 +217,8 @@ struct ClipboardOverlayView: View {
             }
         }
         .clipboardShortcutHelp(isPresented: browser.transientLayer == .help, close: closeHelp)
+        .modifier(ClipboardBrowserHistoryControls(isConfirming: browser.transientLayer == .confirmation,
+                                                  dismissConfirmation: dismissConfirmation, historyChanged: refreshTagLookup))
         .background { ClipboardBrowserKeyboard(focus: contentFocus, action: handleKey) }
         .animation(.easeOut(duration: 0.15), value: editingItemID)
     }
@@ -232,6 +239,14 @@ struct ClipboardOverlayView: View {
         .opacity(editingItemID != nil ? 0.5 : 1)
     }
 
+    private func confirmClear() {
+        browser.showLayer(.confirmation)
+        focusedArea = nil
+        searchFocusRequest = .init(intent: .resign)
+    }
+
+    private func dismissConfirmation() { _ = handleKey(.back, focus: .control) }
+
     private func clearSearch() {
         searchText.wrappedValue = ""
         browser.setFocus(.search)
@@ -248,6 +263,16 @@ struct ClipboardOverlayView: View {
                             previewText: previewText(for: item),
                             tagInfos: tagLookup.tagsByItem[item.id] ?? [],
                             allTags: allTags,
+                            customActions: customActions,
+                            onDelete: {
+                                if editingItemID == item.id { cancelEdit() }
+                                modelContext.delete(item)
+                                try? modelContext.save()
+                            },
+                            onTogglePin: {
+                                item.isPinned.toggle()
+                                try? modelContext.save()
+                            },
                             isSelected: item.id == selectedID,
                             onTap: { selectItem(item.id) },
                             onDoubleTap: {

@@ -95,7 +95,7 @@ Status `.` means pending. All tasks describe future native work, not completed p
 | T3 | x | Implement summon reset, explicit newest-row reveal, and noninterrupting capture notice. | V1,V2,V4,V16,I.capture |
 | T4 | x | Implement shared keyboard routing, clamped navigation, focus transitions, and shortcut help. | V7,V8,V10,V15,I.keys |
 | T5 | x | Add read-only preview with redaction, viewport restoration, and consistent Copy controls. | V9,V11,V12,I.display |
-| T6 | . | Align core item actions. Add safe clear-recent confirmation and Undo. | V13,V14,I.popover,I.modal |
+| T6 | x | Align core item actions. Add safe clear-recent confirmation and Undo. | V13,V14,I.popover,I.modal |
 | T7 | . | Run acceptance checks on both native interfaces. Record runtime and visual evidence separately from prototype checks. | V1,V2,V4,V7,V8,V9,V10,V11,V12,V14,V16,V17 |
 
 ## §B Bug history

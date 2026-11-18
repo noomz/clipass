@@ -1,6 +1,4 @@
 import SwiftUI
-import SwiftData
-import AppKit
 
 /// Individual row view for an item in the overlay clipboard list.
 /// Displays a truncated content preview, optional source app, and relative timestamp.
@@ -13,12 +11,14 @@ struct OverlayItemRow: View {
 
     @FocusState private var editFocused: Bool
     @Environment(\.clipboardBrowserStyle) private var style
-    @Environment(\.modelContext) private var modelContext
 
     let item: ClipboardItem
     let previewText: String        // Pre-computed by parent
     let tagInfos: [TagInfo]        // From TagLookup — no DB access
     let allTags: [Tag]             // For context menu — fetched once by parent
+    let customActions: [ContextAction]
+    let onDelete: () -> Void
+    let onTogglePin: () -> Void
     var isSelected: Bool = false
     var onTap: (() -> Void)? = nil
     var onDoubleTap: (() -> Void)? = nil
@@ -28,7 +28,6 @@ struct OverlayItemRow: View {
     var onTagChanged: (() -> Void)? = nil  // Notify parent to refresh TagLookup
 
     @State private var isHovered = false
-    @State private var showNewTagAlert = false
 
     var body: some View {
         ClipboardBrowserRow(item: item, previewText: previewText, tags: tagInfos,
@@ -59,84 +58,9 @@ struct OverlayItemRow: View {
         .simultaneousGesture(TapGesture(count: 1).onEnded {
             onTap?()
         })
-        .contextMenu {
-            Button(item.isPinned ? "Unpin" : "Pin") {
-                item.isPinned.toggle()
-                try? modelContext.save()
-            }
-
-            Divider()
-
-            Menu("Tag as...") {
-                ForEach(allTags) { tag in
-                    let isTagged = tagInfos.contains { $0.id == tag.id }
-                    Button(action: { toggleTag(tag, on: item) }) {
-                        HStack {
-                            Text(tag.name)
-                            if isTagged {
-                                Spacer()
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-                }
-                Divider()
-                Button("+ New Tag...") {
-                    showNewTagAlert = true
-                }
-            }
-
-            Divider()
-
-            Button("Delete", role: .destructive) {
-                modelContext.delete(item)
-                try? modelContext.save()
-            }
+        .overlay {
+            ClipboardItemMenu(item: item, tagInfos: tagInfos, allTags: allTags, customActions: customActions,
+                              onDelete: onDelete, onTogglePin: onTogglePin, onTagChanged: onTagChanged, popupTags: false)
         }
-        .onChange(of: showNewTagAlert) { _, newValue in
-            if newValue {
-                // Delay to let context menu fully dismiss before presenting NSAlert
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                    presentNewTagAlert()
-                }
-            }
-        }
-    }
-
-    // MARK: - Tag Actions
-
-    private func toggleTag(_ tag: Tag, on item: ClipboardItem) {
-        if let index = item.tags.firstIndex(where: { $0.id == tag.id }) {
-            item.tags.remove(at: index)
-        } else {
-            item.tags.append(tag)
-        }
-        try? modelContext.save()
-        onTagChanged?()
-    }
-
-    private func presentNewTagAlert() {
-        let alert = NSAlert()
-        alert.messageText = "New Tag"
-        alert.informativeText = "Enter a name for the new tag."
-        alert.addButton(withTitle: "Create Tag")
-        alert.addButton(withTitle: "Don't Create")
-
-        let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
-        textField.placeholderString = "Tag name"
-        alert.accessoryView = textField
-
-        let response = alert.runModal()
-        if response == .alertFirstButtonReturn {
-            let name = textField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !name.isEmpty {
-                let newTag = Tag(name: name, colorHex: Tag.randomPresetColor())
-                modelContext.insert(newTag)
-                item.tags.append(newTag)
-                try? modelContext.save()
-                onTagChanged?()
-            }
-        }
-        showNewTagAlert = false
     }
 }
