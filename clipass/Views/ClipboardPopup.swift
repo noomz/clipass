@@ -19,9 +19,10 @@ private func perfLog(_ msg: String) -> Bool {
 
 struct ClipboardPopup: View {
     var monitor: ClipboardMonitor
-    var onCopy: (String) -> Void = { content in
+    var onCopyAndClose: (String) -> Void = { content in
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(content, forType: .string)
+        ClipboardPopupToggle.toggle()
     }
     var onDismiss: () -> Void = { ClipboardPopupToggle.toggle() }
     @Environment(\.modelContext) private var modelContext
@@ -42,7 +43,6 @@ struct ClipboardPopup: View {
     @State private var scrollAnchor: UUID?
     @State private var isVisible = false
     @State private var tagLookup: TagLookup = .empty
-    @State private var previewCache: [UUID: String] = [:]
 
     @AppStorage("previewMaxLength") private var previewMaxLength = 80
 
@@ -70,16 +70,14 @@ struct ClipboardPopup: View {
 
     private func applyBrowserFocus(selectQuery: Bool = false) {
         focusedArea = browser.focus
-        if browser.focus == .search { searchFocusRequest = .init(selectAll: selectQuery) }
+        searchFocusRequest = .init(intent: browser.focus == .search ? (selectQuery ? .selectAll : .focus) : .resign)
     }
 
     private func handleKey(_ action: ClipboardBrowserState.Action, focus: ClipboardBrowserState.Focus) -> Bool {
         switch browser.handleKeyboard(action, focus: focus) {
         case .passThrough: return false
         case .dismiss: onDismiss()
-        case .copyAndClose(let content):
-            onCopy(content)
-            onDismiss()
+        case .copyAndClose(let content): onCopyAndClose(content)
         case .update(let focus, let reveal):
             if focus { applyBrowserFocus(selectQuery: action == .focusSearch) }
             if reveal { revealRequest = UUID() }
@@ -101,17 +99,15 @@ struct ClipboardPopup: View {
     }
 
     private func previewText(for item: ClipboardItem) -> String {
-        if let cached = previewCache[item.id] { return cached }
-        let text = DisplayFormatter.format(item.content, maxLength: previewMaxLength, patterns: redactionPatterns)
-        previewCache[item.id] = text
-        return text
+        DisplayFormatter.format(item.content, maxLength: previewMaxLength, patterns: redactionPatterns)
     }
 
     private var style: ClipboardBrowserStyle { ClipboardBrowserStyle(compact: true, scheme: colorScheme) }
 
     var body: some View {
         let results = displayItems
-        let selected = browser.selectedItem
+        let selected = results.first { $0.id == browser.selectedID }
+        let isPreviewing = browser.presentation == .preview
         let _ = perfLog("body eval: items=\(items.count), display=\(results.count), search='\(browser.query)'")
         VStack(spacing: 0) {
             titleBar
@@ -127,13 +123,16 @@ struct ClipboardPopup: View {
                 ClipboardBrowserEmptyView(state: emptyState, query: browser.query, clearSearch: clearSearch)
             } else {
                 historyList(results)
+                    .clipboardPreview(isPreviewing ? selected : nil, tags: tagLookup.tagsByItem,
+                                      patterns: redactionPatterns, focus: $focusedArea)
             }
             ClipboardBrowserFooter(hasSelection: selected != nil, count: results.count, focus: inputFocus,
-                                   hasQuery: !browser.query.isEmpty, copy: { if let selected { onCopy(selected.content) } },
+                                   hasQuery: !browser.query.isEmpty, isPreviewing: isPreviewing, togglePreview: togglePreview,
+                                   copy: { if let selected { onCopyAndClose(selected.content) } },
                                    unseenCaptureCount: browser.unseenCaptureCount, jumpToLatest: summon)
         }
         .clipboardShortcutHelp(isPresented: browser.transientLayer == .help, close: closeHelp)
-        .background { ClipboardBrowserKeyboard(focus: listFocus, action: handleKey) }
+        .background { ClipboardBrowserKeyboard(focus: contentFocus, action: handleKey) }
         .environment(\.clipboardBrowserStyle, style)
         .background(style.surface)
         .frame(width: ClipboardBrowserStyle.popoverSize.width, height: ClipboardBrowserStyle.popoverSize.height)
@@ -149,13 +148,20 @@ struct ClipboardPopup: View {
             if isVisible { browser.noteCapture() }
         }
         .onChange(of: browserItems) { _, snapshots in
-            previewCache = [:]
             browser.replaceItems(snapshots)
         }
     }
 
-    private var listFocus: ClipboardBrowserState.Focus { focusedArea == .list ? .list : .control }
-    private var inputFocus: ClipboardBrowserState.Focus { searchHasFocus ? .search : listFocus }
+    private var contentFocus: ClipboardBrowserState.Focus {
+        switch focusedArea {
+        case .list: .list
+        case .preview: .preview
+        default: .control
+        }
+    }
+    private var inputFocus: ClipboardBrowserState.Focus { searchHasFocus ? .search : contentFocus }
+
+    private func togglePreview() { _ = handleKey(.togglePreview, focus: inputFocus) }
 
     private func searchFocusChanged(_ focused: Bool) {
         searchHasFocus = focused
@@ -216,7 +222,6 @@ struct ClipboardPopup: View {
                             previewText: previewText(for: item),
                             tagInfos: tagLookup.tagsByItem[item.id] ?? [],
                             allTags: allTags,
-                            redactionPatterns: redactionPatterns,
                             customActions: customActions,
                             onDelete: { deleteItem(item) },
                             onTogglePin: { togglePin(item) },
@@ -225,8 +230,9 @@ struct ClipboardPopup: View {
                             onSelect: {
                                 browser.selectItem(item.id)
                                 browser.setFocus(.list)
-                                focusedArea = .list
-                            }
+                                applyBrowserFocus()
+                            },
+                            onPreview: togglePreview
                         )
                         .overlay(alignment: .bottom) {
                             style.rowSeparator(below: index, in: results, selectedID: browser.selectedID)

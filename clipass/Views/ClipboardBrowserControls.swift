@@ -198,6 +198,8 @@ struct ClipboardBrowserFooter: View {
     let count: Int
     let focus: ClipboardBrowserState.Focus
     var hasQuery = false
+    let isPreviewing: Bool
+    let togglePreview: () -> Void
     let copy: () -> Void
     var unseenCaptureCount = 0
     var jumpToLatest: () -> Void = {}
@@ -210,7 +212,8 @@ struct ClipboardBrowserFooter: View {
             HStack(spacing: 8) {
                 if unseenCaptureCount > 0 {
                     Button(action: jumpToLatest) {
-                        Text("\(unseenCaptureCount) new · Jump to latest")
+                        Text("\(unseenCaptureCount) new · \(style.compact ? "Jump" : "Jump to latest")")
+                            .lineLimit(1)
                             .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(style.ink)
                             .padding(.horizontal, 8)
@@ -228,11 +231,16 @@ struct ClipboardBrowserFooter: View {
                         .lineLimit(1)
                 }
                 Spacer(minLength: 0)
+                Button(action: togglePreview) {
+                    Label(isPreviewing ? "History" : "Preview", systemImage: isPreviewing ? "chevron.left" : "eye")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .disabled(!hasSelection)
                 Button(action: copy) {
                     let shape = RoundedRectangle(cornerRadius: 6)
                     HStack(spacing: 8) {
-                        Text(style.compact ? "Copy" : "Copy & close")
-                        Image(systemName: style.compact ? "doc.on.doc" : "return")
+                        Text("Copy & close")
+                        Image(systemName: "return")
                             .accessibilityHidden(true)
                     }
                     .font(.system(size: 12, weight: .medium))
@@ -245,7 +253,7 @@ struct ClipboardBrowserFooter: View {
                     .contentShape(shape)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(style.compact ? "Copy" : "Copy & close")
+                .accessibilityLabel("Copy & close")
                 .disabled(!hasSelection)
                 .focused($copyFocused)
             }
@@ -254,8 +262,9 @@ struct ClipboardBrowserFooter: View {
             HStack(spacing: 12) {
                 if hasSelection && focus == .search { Text("↓ Results") }
                 if hasSelection && focus == .list { Text("↑ ↓ Navigate") }
-                if hasSelection && (focus == .search || focus == .list) { Text("↵ Copy & close") }
-                Text(hasQuery ? "Esc Clear" : "Esc Close")
+                if focus == .preview { Text("Space History") }
+                if hasSelection && [.search, .list, .preview].contains(focus) { Text("↵ Copy & close") }
+                Text(isPreviewing ? "Esc Back" : hasQuery ? "Esc Clear" : "Esc Close")
                 Text("⌘/ Help")
                 Spacer(minLength: 0)
                 Text("\(count) \(count == 1 ? "item" : "items")").monospacedDigit()
@@ -309,7 +318,7 @@ private struct ClipboardBrowserShortcutHelp: View {
                 VStack(spacing: 5) {
                     ForEach(Array(ClipboardBrowserShortcut.keymap.enumerated()), id: \.offset) { _, shortcut in
                         HStack(alignment: .firstTextBaseline) {
-                            Text(shortcut.title + (shortcut.awaitsPreview ? " (planned)" : ""))
+                            Text(shortcut.title)
                             Spacer()
                             Text(shortcut.symbols).monospaced()
                         }

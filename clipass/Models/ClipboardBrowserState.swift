@@ -128,6 +128,8 @@ struct ClipboardBrowserState: Equatable {
     mutating func setQuery(_ query: String) {
         guard self.query != query else { return }
         self.query = query
+        presentation = .list
+        if focus == .preview { focus = .search }
         selectedID = visibleItems.first?.id
         reconcileSelection()
     }
@@ -219,9 +221,10 @@ struct ClipboardBrowserState: Equatable {
             focus = .search
         case .enterResults:
             guard focus == .search, transientLayer == nil, selectedItem != nil else { return .unhandled }
+            presentation = .list
             focus = .list
         case .navigate(let navigation):
-            guard focus == .list, transientLayer == nil, edit == nil else { return .unhandled }
+            guard focus == .list, presentation == .list, transientLayer == nil, edit == nil else { return .unhandled }
             let visible = visibleItems
             guard !visible.isEmpty else { return .unhandled }
             let current = visible.firstIndex { $0.id == selectedID } ?? 0
@@ -233,7 +236,8 @@ struct ClipboardBrowserState: Equatable {
             }
             selectedID = visible[index].id
         case .togglePreview:
-            guard selectedItem != nil, edit == nil else { return .unhandled }
+            guard selectedItem != nil, edit == nil, transientLayer != .confirmation else { return .unhandled }
+            transientLayer = nil
             if presentation == .preview {
                 presentation = .list
                 focus = .list

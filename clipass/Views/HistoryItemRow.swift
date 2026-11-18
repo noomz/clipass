@@ -7,24 +7,25 @@ struct HistoryItemRow: View {
     let previewText: String            // Pre-computed by parent
     let tagInfos: [TagInfo]            // From TagLookup — no DB access
     let allTags: [Tag]                 // For context menu
-    let redactionPatterns: [RedactionPattern]
     let customActions: [ContextAction]
     let onDelete: () -> Void
     let onTogglePin: () -> Void
     var onTagChanged: (() -> Void)? = nil
     var isSelected = false
     var onSelect: () -> Void
+    var onPreview: () -> Void
 
     @Environment(\.modelContext) private var modelContext
 
     @State private var isHovered = false
 
     var body: some View {
-        Button(action: onSelect) {
-            ClipboardBrowserRow(item: item, previewText: previewText, tags: tagInfos,
-                                isSelected: isSelected, isHovered: isHovered) { EmptyView() }
+        ClipboardBrowserRow(item: item, previewText: previewText, tags: tagInfos,
+                            isSelected: isSelected, isHovered: isHovered) {
+            if isSelected { ClipboardRowPreviewButton(action: onPreview) }
         }
-        .buttonStyle(.plain)
+        .onTapGesture(perform: onSelect)
+        .accessibilityAction(named: Text("Select"), onSelect)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .onHover { hovering in
             isHovered = hovering

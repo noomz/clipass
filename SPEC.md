@@ -94,7 +94,7 @@ Status `.` means pending. All tasks describe future native work, not completed p
 | T2.1 | x | Match both native interfaces to approved B: layout, sizing, spacing, typography, tabs, search, row styling, selection and hover, empty states, and control placement. Compare native screenshots side by side with I.design; behavior tests and isolated control renders are not visual sign-off. Preserve T2 behavior; T3–T6 retain their feature scope. | V3,V5,V6,V11,V15,I.popover,I.modal,I.design |
 | T3 | x | Implement summon reset, explicit newest-row reveal, and noninterrupting capture notice. | V1,V2,V4,V16,I.capture |
 | T4 | x | Implement shared keyboard routing, clamped navigation, focus transitions, and shortcut help. | V7,V8,V10,V15,I.keys |
-| T5 | . | Add read-only preview with redaction, viewport restoration, and consistent Copy controls. | V9,V11,V12,I.display |
+| T5 | x | Add read-only preview with redaction, viewport restoration, and consistent Copy controls. | V9,V11,V12,I.display |
 | T6 | . | Align core item actions. Add safe clear-recent confirmation and Undo. | V13,V14,I.popover,I.modal |
 | T7 | . | Run acceptance checks on both native interfaces. Record runtime and visual evidence separately from prototype checks. | V1,V2,V4,V7,V8,V9,V10,V11,V12,V14,V16,V17 |
 

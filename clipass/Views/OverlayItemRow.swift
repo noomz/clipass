@@ -22,6 +22,7 @@ struct OverlayItemRow: View {
     var isSelected: Bool = false
     var onTap: (() -> Void)? = nil
     var onDoubleTap: (() -> Void)? = nil
+    var onPreview: () -> Void
     var onEdit: (() -> Void)? = nil
     var isEditing: Bool = false
     var onTagChanged: (() -> Void)? = nil  // Notify parent to refresh TagLookup
@@ -32,6 +33,7 @@ struct OverlayItemRow: View {
     var body: some View {
         ClipboardBrowserRow(item: item, previewText: previewText, tags: tagInfos,
                             isSelected: isSelected, isHovered: isHovered) {
+            if isSelected && !isEditing { ClipboardRowPreviewButton(action: onPreview) }
             if let onEdit, (isSelected || isHovered || editFocused) && !isEditing {
                 Button(action: onEdit) {
                     ClipboardBrowserIcon(symbol: "pencil")

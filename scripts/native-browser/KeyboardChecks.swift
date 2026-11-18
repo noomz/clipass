@@ -27,7 +27,7 @@ extension NativeBrowserChecks {
         try expect(!searchHasFocus(field, in: window), "\(name): ↓ did not focus results")
         try await key("\u{F701}", code: 125, modifiers: .command, in: window)
         try await key("\u{F701}", code: 125, in: window)
-        let copyLabel = isOverlay ? "Copy & close" : "Copy"
+        let copyLabel = "Copy & close"
         try press(copyLabel, in: host)
         try await settle()
         try expect(fixture.copied == CaptureFixture.row(2), "\(name): ⌘↓ or clamped ↓ did not keep the last filtered pin")
@@ -87,14 +87,12 @@ extension NativeBrowserChecks {
         try expect(window.isVisible && field.stringValue.isEmpty, "\(name): second Escape did not clear only search")
         try await key("\r", code: 36, in: window)
         try expect(fixture.copied == CaptureFixture.row(40), "\(name): Return in search did not copy the selected item")
-        if isOverlay {
-            try await key("\u{1B}", code: 53, in: window)
-        }
-        try expect(!window.isVisible, "\(name): browser did not dismiss with \(isOverlay ? "Escape" : "Return")")
+        try await key("\u{1B}", code: 53, in: window)
+        try expect(!window.isVisible, "\(name): Escape did not dismiss the browser")
         print("PASS: \(name) keyboard routing, native text editing, row reveal, and layered Escape")
     }
 
-    private static func key(_ characters: String, code: UInt16, modifiers: NSEvent.ModifierFlags = [],
+    static func key(_ characters: String, code: UInt16, modifiers: NSEvent.ModifierFlags = [],
                             repeatKey: Bool = false, in window: NSWindow) async throws {
         guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: modifiers,
                                           timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,

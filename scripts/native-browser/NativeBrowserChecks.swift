@@ -9,7 +9,7 @@ struct NativeBrowserCheckApp: App {
     var body: some Scene {
         MenuBarExtra {
             ClipboardPopup(monitor: NativeBrowserChecks.popoverFixture.monitor,
-                           onCopy: { NativeBrowserChecks.popoverFixture.copied = $0 })
+                           onCopyAndClose: { NativeBrowserChecks.popoverFixture.copied = $0 })
                 .modelContext(NativeBrowserChecks.popoverFixture.context)
                 .background { NativeBrowserChecks.PopoverProbe() }
         } label: {
@@ -68,6 +68,8 @@ struct NativeBrowserChecks {
                     try await exerciseInterface(isOverlay: true)
                     try await exerciseKeyboard(isOverlay: false)
                     try await exerciseKeyboard(isOverlay: true)
+                    try await exercisePreview(isOverlay: false)
+                    try await exercisePreview(isOverlay: true)
                     try await exerciseSummon(isOverlay: true)
                     if let fixturePath = ProcessInfo.processInfo.environment["CLIPASS_PARITY_FIXTURE"] {
                         let fixture = try Data(contentsOf: URL(fileURLWithPath: fixturePath))
@@ -124,7 +126,7 @@ struct NativeBrowserChecks {
         let searchFrame = window.convertToScreen(field.convert(field.bounds, to: nil))
         let tabFrame = try textFrame("Recent", in: host)
         let rowFrame = try textFrame("Newest work notes", in: host)
-        let copyLabel = isOverlay ? "Copy & close" : "Copy"
+        let copyLabel = "Copy & close"
         let copyFrame = try textFrame(copyLabel, in: host)
         try expect(searchFrame.midY > tabFrame.midY && tabFrame.midY > rowFrame.midY && rowFrame.midY > copyFrame.midY,
                    "\(name): search, tabs, history and Copy are out of order")
@@ -276,7 +278,8 @@ struct NativeBrowserChecks {
     }
 
     static func showInterface(isOverlay: Bool, context: ModelContext,
-                              monitor: ClipboardMonitor = ClipboardMonitor(), onCopy: @escaping (String) -> Void)
+                              monitor: ClipboardMonitor = ClipboardMonitor(), closesOnCopy: Bool = false, defaults: UserDefaults? = nil,
+                              onCopy: @escaping (String) -> Void)
         -> (NSHostingView<AnyView>, NSWindow) {
         let panel = OverlayPanel()
         panel.shownAt = .distantFuture
@@ -285,16 +288,21 @@ struct NativeBrowserChecks {
             styleMask: [.borderless], backing: .buffered, defer: false
         )
         let dismiss: () -> Void = { [weak window] in window?.orderOut(nil) }
+        let copyAndClose: (String) -> Void = { content in
+            onCopy(content)
+            if closesOnCopy { dismiss() }
+        }
         let root: AnyView
         if isOverlay {
             let themes = ThemeManager()
             themes.current = Theme.themes[.system]!
-            root = AnyView(ClipboardOverlayView(panel: panel, monitor: monitor, onCopyAndClose: onCopy, onDismiss: dismiss)
+            root = AnyView(ClipboardOverlayView(panel: panel, monitor: monitor, onCopyAndClose: copyAndClose, onDismiss: dismiss)
                 .environment(themes).modelContext(context))
         } else {
-            root = AnyView(ClipboardPopup(monitor: monitor, onCopy: onCopy, onDismiss: dismiss).modelContext(context))
+            root = AnyView(ClipboardPopup(monitor: monitor, onCopyAndClose: copyAndClose, onDismiss: dismiss).modelContext(context))
         }
-        let host = isOverlay ? panel.host(root) : NSHostingView(rootView: root)
+        let content = defaults.map { AnyView(root.defaultAppStorage($0)) } ?? root
+        let host = isOverlay ? panel.host(content) : NSHostingView(rootView: content)
         window.isReleasedWhenClosed = false
         window.appearance = NSAppearance(named: .aqua)
         if !isOverlay { window.contentView = host }

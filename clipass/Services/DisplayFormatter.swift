@@ -34,12 +34,8 @@ struct DisplayFormatter {
 
     // MARK: - Main Format Pipeline
 
-    /// Format content for display: stripInvisibles -> redact -> truncate
     static func format(_ content: String, maxLength: Int, patterns: [RedactionPattern]) -> String {
-        var result = stripInvisibles(content)
-        result = redact(result, patterns: patterns)
-        result = truncate(result, maxLength: maxLength)
-        return result
+        truncate(stripInvisibles(redact(content, patterns: patterns)), maxLength: maxLength)
     }
 
     // MARK: - Strip Invisibles

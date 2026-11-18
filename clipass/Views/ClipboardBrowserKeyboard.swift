@@ -10,7 +10,6 @@ struct ClipboardBrowserShortcut {
     var modifiers: NSEvent.ModifierFlags = []
     var action: Action
     var focus: ClipboardBrowserState.Focus?
-    var awaitsPreview = false
 
     static let keymap: [Self] = [
         .init(key: "1", title: "Open Recent", symbols: "⌘1", modifiers: .command, action: .openTab(.recent)),
@@ -25,8 +24,8 @@ struct ClipboardBrowserShortcut {
         .init(key: "\u{F729}", title: "First result", symbols: "Home", action: .navigate(.first), focus: .list),
         .init(key: "\u{F72B}", title: "Last result", symbols: "End", action: .navigate(.last), focus: .list),
         .init(key: "f", title: "Select search text", symbols: "⌘F", modifiers: .command, action: .focusSearch),
-        .init(key: " ", title: "Toggle preview from results or preview", symbols: "Space", action: .togglePreview, awaitsPreview: true),
-        .init(key: "p", title: "Toggle preview", symbols: "⌘P", modifiers: .command, action: .togglePreview, awaitsPreview: true),
+        .init(key: " ", title: "Toggle preview from results or preview", symbols: "Space", action: .togglePreview),
+        .init(key: "p", title: "Toggle preview", symbols: "⌘P", modifiers: .command, action: .togglePreview),
         .init(key: "\u{1B}", title: "Back one layer", symbols: "Esc", action: .back),
         .init(key: "\r", title: "Copy & close", symbols: "↵", action: .copyAndClose),
         .init(key: "/", title: "Shortcut help", symbols: "⌘/", modifiers: .command, action: .toggleHelp)
@@ -40,7 +39,8 @@ struct ClipboardBrowserShortcut {
         default: event.charactersIgnoringModifiers?.lowercased()
         }
         return keymap.first {
-            !$0.awaitsPreview && $0.key == key && $0.modifiers == modifiers && ($0.focus == nil || $0.focus == focus)
+            $0.key == key && $0.modifiers == modifiers && ($0.focus == nil || $0.focus == focus)
+                && (key != " " || focus == .list || focus == .preview)
         }
     }
 }
@@ -88,7 +88,7 @@ struct ClipboardBrowserKeyboard: NSViewRepresentable {
                   (window.firstResponder as? NSTextInputClient)?.hasMarkedText() != true else { return event }
             let actualFocus: ClipboardBrowserState.Focus = ClipboardBrowserTextField.hasFocus(in: window) ? .search : focus
             guard let shortcut = ClipboardBrowserShortcut.match(event, focus: actualFocus) else { return event }
-            if event.isARepeat && (shortcut.action == .back || shortcut.action == .toggleHelp) {
+            if event.isARepeat && [.back, .toggleHelp, .togglePreview].contains(shortcut.action) {
                 return nil
             }
             return action(shortcut.action, actualFocus) ? nil : event

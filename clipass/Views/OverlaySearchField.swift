@@ -3,8 +3,10 @@ import SwiftUI
 
 struct ClipboardBrowserSearchField: NSViewRepresentable {
     struct FocusRequest: Equatable {
+        enum Intent { case focus, selectAll, resign }
+
         private let id = UUID()
-        var selectAll = false
+        var intent: Intent = .focus
     }
 
     @Environment(\.isEnabled) private var isEnabled
@@ -92,10 +94,13 @@ final class ClipboardBrowserTextField: NSTextField {
         DispatchQueue.main.async { [weak self] in
             guard let self, self.request == request, appliedRequest != request, let window, isEnabled else { return }
             appliedRequest = request
-            if request.selectAll {
+            switch request.intent {
+            case .focus:
+                if !hasFocus(in: window) { window.makeFirstResponder(self) }
+            case .selectAll:
                 selectText(nil)
-            } else if !hasFocus(in: window) {
-                window.makeFirstResponder(self)
+            case .resign:
+                if hasFocus(in: window) { window.makeFirstResponder(nil) }
             }
         }
     }

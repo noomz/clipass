@@ -12,6 +12,8 @@ struct ClipboardOverlayView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(ThemeManager.self) private var themeManager
     @Query(sort: \ClipboardItem.timestamp, order: .reverse) private var items: [ClipboardItem]
+    @Query private var redactionPatterns: [RedactionPattern]
+    @AppStorage("previewMaxLength") private var previewMaxLength = 80
 
     @State private var browser = ClipboardBrowserState()
     @FocusState private var focusedArea: ClipboardBrowserState.Focus?
@@ -24,7 +26,6 @@ struct ClipboardOverlayView: View {
     @State private var editorContent = ""
     @State private var tagLookup: TagLookup = .empty
     @State private var allTags: [Tag] = []
-    @State private var previewCache: [UUID: String] = [:]
 
     private var theme: Theme { themeManager.current }
     private var selectedID: UUID? { browser.selectedID }
@@ -46,9 +47,10 @@ struct ClipboardOverlayView: View {
     }
 
     private func selectItem(_ id: UUID) {
+        guard browser.presentation == .list else { return }
         browser.selectItem(id)
         browser.setFocus(.list)
-        focusedArea = .list
+        applyBrowserFocus()
     }
 
     private func openTab(_ tab: ClipboardBrowserState.Tab) {
@@ -61,7 +63,7 @@ struct ClipboardOverlayView: View {
 
     private func applyBrowserFocus(selectQuery: Bool = false) {
         focusedArea = browser.focus
-        if browser.focus == .search { searchFocusRequest = .init(selectAll: selectQuery) }
+        searchFocusRequest = .init(intent: browser.focus == .search ? (selectQuery ? .selectAll : .focus) : .resign)
     }
 
     private func handleKey(_ action: ClipboardBrowserState.Action, focus: ClipboardBrowserState.Focus) -> Bool {
@@ -98,7 +100,6 @@ struct ClipboardOverlayView: View {
     private func summon() {
         editingItemID = nil
         editorContent = ""
-        previewCache = [:]
         refreshTagLookup()
         browser.summon(items: browserItems)
         applyBrowserFocus()
@@ -107,10 +108,7 @@ struct ClipboardOverlayView: View {
     }
 
     private func previewText(for item: ClipboardItem) -> String {
-        if let cached = previewCache[item.id] { return cached }
-        let text = DisplayFormatter.format(item.content, maxLength: 100, patterns: [])
-        previewCache[item.id] = text
-        return text
+        DisplayFormatter.format(item.content, maxLength: previewMaxLength, patterns: redactionPatterns)
     }
 
     private var style: ClipboardBrowserStyle {
@@ -150,13 +148,20 @@ struct ClipboardOverlayView: View {
             if panel.isVisible { browser.noteCapture() }
         }
         .onChange(of: browserItems) { _, snapshots in
-            previewCache = [:]
             browser.replaceItems(snapshots)
         }
     }
 
-    private var listFocus: ClipboardBrowserState.Focus { focusedArea == .list ? .list : .control }
-    private var inputFocus: ClipboardBrowserState.Focus { searchHasFocus ? .search : listFocus }
+    private var contentFocus: ClipboardBrowserState.Focus {
+        switch focusedArea {
+        case .list: .list
+        case .preview: .preview
+        default: .control
+        }
+    }
+    private var inputFocus: ClipboardBrowserState.Focus { searchHasFocus ? .search : contentFocus }
+
+    private func togglePreview() { _ = handleKey(.togglePreview, focus: inputFocus) }
 
     private func searchFocusChanged(_ focused: Bool) {
         searchHasFocus = focused
@@ -168,6 +173,7 @@ struct ClipboardOverlayView: View {
     private var contentStack: some View {
         let results = displayItems
         let selected = results.first { $0.id == selectedID }
+        let isPreviewing = browser.presentation == .preview
         return VStack(spacing: 0) {
             ClipboardBrowserTitleBar(title: "Clipboard history") {
                 Button(action: onDismiss) { ClipboardBrowserIcon(symbol: "xmark") }
@@ -184,6 +190,8 @@ struct ClipboardOverlayView: View {
                 ClipboardBrowserEmptyView(state: emptyState, query: browser.query, clearSearch: clearSearch)
             } else {
                 historyList(results)
+                    .clipboardPreview(isPreviewing ? selected : nil, tags: tagLookup.tagsByItem,
+                                      patterns: redactionPatterns, focus: $focusedArea)
             }
 
             if let editingID = editingItemID, results.contains(where: { $0.id == editingID }) {
@@ -198,12 +206,13 @@ struct ClipboardOverlayView: View {
             } else {
                 ClipboardBrowserFooter(selectedText: selected.map { previewText(for: $0) },
                                        hasSelection: selected != nil, count: results.count,
-                                       focus: inputFocus, hasQuery: !browser.query.isEmpty, copy: copySelectedAndClose,
+                                       focus: inputFocus, hasQuery: !browser.query.isEmpty,
+                                       isPreviewing: isPreviewing, togglePreview: togglePreview, copy: copySelectedAndClose,
                                        unseenCaptureCount: browser.unseenCaptureCount, jumpToLatest: summon)
             }
         }
         .clipboardShortcutHelp(isPresented: browser.transientLayer == .help, close: closeHelp)
-        .background { ClipboardBrowserKeyboard(focus: listFocus, action: handleKey) }
+        .background { ClipboardBrowserKeyboard(focus: contentFocus, action: handleKey) }
         .animation(.easeOut(duration: 0.15), value: editingItemID)
     }
 
@@ -245,6 +254,7 @@ struct ClipboardOverlayView: View {
                                 selectItem(item.id)
                                 copySelectedAndClose()
                             },
+                            onPreview: togglePreview,
                             onEdit: {
                                 selectItem(item.id)
                                 enterEditMode(for: item)

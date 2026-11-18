@@ -78,7 +78,7 @@ extension NativeBrowserChecks {
                    "\(name): query did not reveal the pinned fixture (field: \(firstField.stringValue), visible: \(text(in: initialHost)))")
         try clickText(CaptureFixture.row(2), in: initialHost, window: initialWindow)
         try await settle()
-        try press(isOverlay ? "Copy & close" : "Copy", in: initialHost)
+        try press("Copy & close", in: initialHost)
         try await settle()
         try expect(fixture.copied == CaptureFixture.row(2), "\(name): older pinned selection not established")
         try await dismiss(initialWindow, isOverlay: isOverlay)
@@ -123,7 +123,7 @@ extension NativeBrowserChecks {
         try expect(!searchHasFocus(field, in: openWindow), "\(name): capture stole list focus")
         let after = try textFrame(oldContent, in: openHost)
         try expect(abs(before.midY - after.midY) < 1, "\(name): capture moved browsing viewport by \(after.midY - before.midY) points")
-        try press(isOverlay ? "Copy & close" : "Copy", in: openHost)
+        try press("Copy & close", in: openHost)
         try await settle()
         try expect(fixture.copied == oldContent, "\(name): capture changed selected row")
         try press("Jump to latest", in: openHost)
@@ -154,7 +154,7 @@ extension NativeBrowserChecks {
         try expect(element("Jump to latest", in: host) == nil, "\(name): summon kept stale notice")
         try expect(isRowVisible(content, host: host), "\(name): summon did not reveal \(content)")
         fixture.copied = nil
-        try press(isOverlay ? "Copy & close" : "Copy", in: host)
+        try press("Copy & close", in: host)
         try await settle()
         try expect(fixture.copied == content, "\(name): summon selected \(String(describing: fixture.copied)) instead of \(content)")
     }
