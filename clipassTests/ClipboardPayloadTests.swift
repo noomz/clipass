@@ -46,11 +46,9 @@ enum TestImages {
             bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height, bitsPerSample: 8,
             samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
             bytesPerRow: 0, bitsPerPixel: 0))
-        for x in 0..<width {
-            for y in 0..<height {
-                rep.setColor(NSColor(red: CGFloat(x) / CGFloat(width), green: CGFloat(y) / CGFloat(height),
-                                     blue: 0.5, alpha: 1), atX: x, y: y)
-            }
+        let pixels = try XCTUnwrap(rep.bitmapData)
+        for index in 0..<(rep.bytesPerRow * height) {
+            pixels[index] = UInt8(truncatingIfNeeded: index * 7)
         }
         rep.size = NSSize(width: CGFloat(width) / 2, height: CGFloat(height) / 2)
         return rep
