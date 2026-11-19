@@ -1,4 +1,4 @@
-import AppKit
+import ImageIO
 import SwiftUI
 
 extension View {
@@ -25,8 +25,7 @@ private struct ClipboardBrowserPreview: View {
     let patterns: [RedactionPattern]
     let focus: FocusState<ClipboardBrowserState.Focus?>.Binding
     @Environment(\.clipboardBrowserStyle) private var style
-    // Decoded once when the preview opens; reading imageData loads its external file.
-    @State private var image: (picture: NSImage, width: Int, height: Int)?
+    @State private var image: ClipboardPreviewImage?
 
     private var metadata: [String] {
         var parts = [item.sourceAppDisplayName ?? "Unknown app", item.timestamp.formatted(date: .abbreviated, time: .shortened)]
@@ -49,13 +48,12 @@ private struct ClipboardBrowserPreview: View {
             }
             ScrollView {
                 if let image {
-                    Image(nsImage: image.picture)
+                    Image(image.picture, scale: image.scale, label: Text(item.content))
                         .resizable()
                         .scaledToFit()
-                        .frame(maxWidth: image.picture.size.width, maxHeight: image.picture.size.height)
+                        .frame(maxWidth: CGFloat(image.width) / image.scale, maxHeight: CGFloat(image.height) / image.scale)
                         .frame(maxWidth: .infinity)
                         .padding(8)
-                        .accessibilityLabel(item.content)
                 } else if !item.isImage {
                     Text(DisplayFormatter.redact(item.content, patterns: patterns))
                         .font(.system(size: 12, design: .monospaced))
@@ -73,13 +71,38 @@ private struct ClipboardBrowserPreview: View {
         .padding(.horizontal, 12)
         .padding(.bottom, 6)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .onAppear(perform: loadImage)
+        .task(id: item.id) {
+            // imageData is a SwiftData read, so it stays on main; decoding a large image does not.
+            guard let data = item.imageData else { return }
+            image = await Task.detached(priority: .userInitiated) { ClipboardPreviewImage(data) }.value
+        }
     }
+}
 
-    private func loadImage() {
-        guard let data = item.imageData, let picture = NSImage(data: data),
-              let size = ClipboardCapture.pixelSize(of: data) else { return }
-        image = (picture, size.width, size.height)
+private struct ClipboardPreviewImage {
+    static let maxPixels = 1600
+
+    let picture: CGImage
+    let width: Int
+    let height: Int
+    let scale: CGFloat
+
+    init?(_ data: Data) {
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: Self.maxPixels,
+        ]
+        guard let size = ClipboardCapture.pixelSize(of: data),
+              let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let picture = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
+        self.picture = picture
+        width = size.width
+        height = size.height
+        // Keep the original's point size, as NSImage would: a 144-dpi screenshot is 2 px per point.
+        let dpi = properties[kCGImagePropertyDPIWidth] as? CGFloat ?? 72
+        scale = dpi / 72 * CGFloat(picture.width) / CGFloat(size.width)
     }
 }
 

@@ -40,6 +40,10 @@ extension NativeBrowserChecks {
                    "\(name): image menu offers text actions")
 
         try await key("p", code: 35, modifiers: .command, in: window)
+        // The preview decodes the image off the main thread.
+        for _ in 0..<40 where element("Image 640×320", in: host) == nil {
+            try await Task.sleep(for: .milliseconds(50))
+        }
         try expect(text(in: host).contains("640 × 320 px") && element("Image 640×320", in: host) != nil,
                    "\(name): image preview lacks pixel size or image: \(text(in: host))")
         let shown = try textFrame("Image 640×320", in: host)
