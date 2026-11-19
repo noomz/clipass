@@ -55,7 +55,7 @@ struct ClipboardItemMenu: View {
         let menu = NSMenu()
 
         // Primary actions
-        addAction(to: menu, title: "Copy") { copyTransformed(item.content) }
+        addAction(to: menu, title: "Copy") { item.payload.write(to: .general) }
         addAction(to: menu, title: item.isPinned ? "Unpin" : "Pin", action: onTogglePin)
 
         menu.addItem(.separator())

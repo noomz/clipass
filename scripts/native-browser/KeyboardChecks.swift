@@ -30,7 +30,7 @@ extension NativeBrowserChecks {
         let copyLabel = "Copy & close"
         try press(copyLabel, in: host)
         try await settle()
-        try expect(fixture.copied == CaptureFixture.row(2), "\(name): ⌘↓ or clamped ↓ did not keep the last filtered pin")
+        try expect(fixture.copied == .text(CaptureFixture.row(2)), "\(name): ⌘↓ or clamped ↓ did not keep the last filtered pin")
         guard let clip = scrollView(in: host)?.contentView else { throw Failure(description: "\(name): missing result viewport") }
         let viewport = window.convertToScreen(clip.convert(clip.bounds, to: nil))
         let lastRow = try textFrame(CaptureFixture.row(2), in: host)
@@ -40,7 +40,7 @@ extension NativeBrowserChecks {
         try await key("\u{F700}", code: 126, in: window)
         try press(copyLabel, in: host)
         try await settle()
-        try expect(fixture.copied == CaptureFixture.row(8), "\(name): Home or clamped ↑ did not keep the first filtered pin")
+        try expect(fixture.copied == .text(CaptureFixture.row(8)), "\(name): Home or clamped ↑ did not keep the first filtered pin")
 
         try await key("}", code: 30, modifiers: [.command, .shift], in: window)
         try expect(text(in: host).contains(CaptureFixture.row(9)) && !searchHasFocus(field, in: window),
@@ -86,7 +86,7 @@ extension NativeBrowserChecks {
         try await key("\u{1B}", code: 53, in: window)
         try expect(window.isVisible && field.stringValue.isEmpty, "\(name): second Escape did not clear only search")
         try await key("\r", code: 36, in: window)
-        try expect(fixture.copied == CaptureFixture.row(40), "\(name): Return in search did not copy the selected item")
+        try expect(fixture.copied == .text(CaptureFixture.row(40)), "\(name): Return in search did not copy the selected item")
         try await key("\u{1B}", code: 53, in: window)
         try expect(!window.isVisible, "\(name): Escape did not dismiss the browser")
         print("PASS: \(name) keyboard routing, native text editing, row reveal, and layered Escape")

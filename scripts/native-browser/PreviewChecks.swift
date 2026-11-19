@@ -70,7 +70,7 @@ extension NativeBrowserChecks {
         try await key(" ", code: 49, in: window)
         try expect(element("History", in: host) != nil, "\(name): preview close did not restore Space on the selected list row")
         try await key("\r", code: 36, in: window)
-        try expect(fixture.copied == raw && !window.isVisible, "\(name): Return in preview did not copy original and close")
+        try expect(fixture.copied == .text(raw) && !window.isVisible, "\(name): Return in preview did not copy original and close")
         print("PASS: \(name) V9, V11, V12: preview, redaction, scroll restoration, and original Copy & close")
     }
 

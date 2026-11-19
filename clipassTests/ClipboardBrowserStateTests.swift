@@ -51,6 +51,29 @@ final class ClipboardBrowserStateTests: XCTestCase {
         XCTAssertEqual(state.selectedID, pinnedMatch.id)
     }
 
+    func testCopyReturnsSelectedItemIDAndImageItemsRefuseEditing() {
+        let image = State.Item(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000005")!,
+            content: "Image 1440×900",
+            timestamp: Date(timeIntervalSince1970: 40),
+            isPinned: false,
+            tagNames: [],
+            isImage: true
+        )
+        var state = State(items: items + [image])
+        XCTAssertEqual(state.selectedID, image.id)
+        XCTAssertEqual(state.handleKeyboard(.copyAndClose, focus: .search), .copyAndClose(image.id))
+
+        _ = state.handleKeyboard(.enterResults, focus: .search)
+        state.beginEditing()
+        XCTAssertNil(state.edit)
+        XCTAssertEqual(state.focus, .list)
+
+        state.selectItem(newest.id)
+        state.beginEditing()
+        XCTAssertEqual(state.edit?.itemID, newest.id)
+    }
+
     func testV5KeyboardTabSwitchKeepsQueryAndListFocus() {
         var state = State(items: items)
         state.setQuery("work notes")
@@ -67,7 +90,7 @@ final class ClipboardBrowserStateTests: XCTestCase {
         XCTAssertEqual(state.handleKeyboard(.navigate(.last), focus: .search), .passThrough)
         XCTAssertEqual(state.selectedID, newest.id)
         XCTAssertEqual(state.handleKeyboard(.copyAndClose, focus: .control), .passThrough)
-        XCTAssertEqual(state.handleKeyboard(.copyAndClose, focus: .search), .copyAndClose(newest.content))
+        XCTAssertEqual(state.handleKeyboard(.copyAndClose, focus: .search), .copyAndClose(newest.id))
         state.setQuery("no such result")
         XCTAssertEqual(state.handleKeyboard(.enterResults, focus: .search), .passThrough)
         XCTAssertEqual(state.handleKeyboard(.copyAndClose, focus: .search), .passThrough)

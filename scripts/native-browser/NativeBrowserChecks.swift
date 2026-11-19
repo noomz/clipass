@@ -115,7 +115,7 @@ struct NativeBrowserChecks {
         new.tags.append(tag)
         try context.save()
 
-        var copied: String?
+        var copied: ClipboardPayload?
         let (host, window) = showInterface(isOverlay: isOverlay, context: context) { copied = $0 }
         defer { window.close() }
         try await waitForInterface(host)
@@ -135,7 +135,7 @@ struct NativeBrowserChecks {
         try capture(host, name: "\(name)-recent")
         try press(copyLabel, in: host)
         try await settle()
-        try expect(copied == "Newest work notes", "\(name): visible Copy did not copy selection")
+        try expect(copied == .text("Newest work notes"), "\(name): visible Copy did not copy selection")
 
         try press("Pinned", in: host)
         try await settle()
@@ -171,7 +171,7 @@ struct NativeBrowserChecks {
             }
             NSApp.postEvent(event, atStart: false)
             try await settle()
-            try expect(copied == "Older work notes", "overlay: moving focus to list broke Return copy")
+            try expect(copied == .text("Older work notes"), "overlay: moving focus to list broke Return copy")
         }
         try press("Recent", in: host)
         try await settle()
@@ -281,7 +281,7 @@ struct NativeBrowserChecks {
 
     static func showInterface(isOverlay: Bool, context: ModelContext,
                               monitor: ClipboardMonitor = ClipboardMonitor(), closesOnCopy: Bool = false, defaults: UserDefaults? = nil,
-                              onCopy: @escaping (String) -> Void)
+                              onCopy: @escaping (ClipboardPayload) -> Void)
         -> (NSHostingView<AnyView>, NSWindow) {
         let panel = OverlayPanel()
         panel.shownAt = .distantFuture
@@ -290,8 +290,8 @@ struct NativeBrowserChecks {
             styleMask: [.borderless], backing: .buffered, defer: false
         )
         let dismiss: () -> Void = { [weak window] in window?.orderOut(nil) }
-        let copyAndClose: (String) -> Void = { content in
-            onCopy(content)
+        let copyAndClose: (ClipboardPayload) -> Void = { payload in
+            onCopy(payload)
             if closesOnCopy { dismiss() }
         }
         let root: AnyView

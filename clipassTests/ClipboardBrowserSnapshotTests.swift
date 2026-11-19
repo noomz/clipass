@@ -12,6 +12,24 @@ final class ClipboardBrowserSnapshotTests: XCTestCase {
         return ModelContext(container)
     }
 
+    func testImageItemsSnapshotAsImagesAndMatchSearchForImage() throws {
+        let context = try makeContext()
+        let image = ClipboardItem(content: "Image 1440×900", imageData: Data([1]), thumbnailData: Data([2]),
+                                  imageHash: "abc")
+        let note = ClipboardItem(content: "Meeting notes")
+        context.insert(image)
+        context.insert(note)
+        try context.save()
+
+        var browser = ClipboardBrowserState(items: [image, note].map {
+            ClipboardBrowserState.Item($0, tagLookup: .empty)
+        })
+        XCTAssertEqual(browser.visibleItems.map(\.isImage).sorted { !$0 && $1 }, [false, true])
+        browser.setQuery("image")
+        XCTAssertEqual(browser.visibleItems.map(\.id), [image.id])
+        XCTAssertTrue(try XCTUnwrap(browser.selectedItem).isImage)
+    }
+
     func testV3PinChangesKeepNativeSnapshotsChronological() throws {
         let context = try makeContext()
         let old = ClipboardItem(content: "old", timestamp: Date(timeIntervalSince1970: 10))
