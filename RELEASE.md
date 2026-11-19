@@ -1,5 +1,25 @@
 # Release Notes
 
+## v1.6.0
+
+Redesigned clipboard browser. The menu bar popover and the overlay now share one layout, one search, and one keyboard workflow.
+
+### Changes
+
+- **Recent and Pinned tabs** — Recent lists every item, newest first, with pinned items in their normal place. Pinned lists only pinned items. Press ⌘1 or ⌘2 to switch tabs, or ⌘⇧[ and ⌘⇧] to cycle.
+- **Opens on the newest copy** — each time you open clipass, it starts in Recent, clears the search, and selects and scrolls to your newest copy. If something is copied while clipass is open, a notice with **Jump to latest** appears instead of moving your selection.
+- **Keyboard navigation** — ↑ and ↓ stop at the first and last item. ⌘↑ and ⌘↓ (or Home and End) jump to the first or last item. ⌘F focuses search without clearing it. Return copies the item and closes. Esc backs out one step at a time. ⌘/ shows all shortcuts.
+- **Preview** — Space or ⌘P opens a read-only preview with the full text, source app, time, and tags. It uses the same redaction rules as the list.
+- **Same actions everywhere** — both views offer Copy, Pin or Unpin, Copy as plain text, Copy as uppercase, and Delete. Existing transforms and custom actions are still available.
+- **Clear recent history** — now in the overflow menu. It asks for confirmation, keeps pinned items, and can be undone.
+- **Search** — works the same in both views, including `tag:` filters.
+
+### Behavior change
+
+- Pinning an item no longer moves it to the top of the list. Find pinned items in the Pinned tab.
+
+---
+
 ## v1.5.2
 
 Build pipeline update. No app changes.

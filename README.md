@@ -13,7 +13,7 @@ clipass lives in your menu bar, monitors the system clipboard, stores text histo
 - **Clipboard History** - Stores up to 100 recent text items with one-click re-copy
 - **Global Hotkey** - `Cmd+Shift+V` to open the popup (customizable)
 - **Search** - Real-time filtering across your clipboard history
-- **Pin Items** - Pin important entries to keep them at the top; pinned items are exempt from auto-cleanup and max-items pruning
+- **Recent and Pinned Tabs** - Recent shows all history newest first; pin important entries to list them in the Pinned tab; pinned items are exempt from auto-cleanup and max-items pruning
 - **Delete Items** - Right-click any entry to delete it, or use "Clear All" to remove everything
 - **Content Type Detection** - Automatically detects URLs, emails, JSON, file paths, hex colors, and numbers for context-appropriate actions
 - **Copy As...** - Quick text transforms via right-click: UPPERCASE, lowercase, Trimmed, Base64, URL encode/decode, and Formatted JSON
