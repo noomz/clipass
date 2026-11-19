@@ -111,7 +111,20 @@ extension NativeBrowserChecks {
         try await scrollFixtureToBottom(resultsScroll, document: resultsDocument, isOverlay: isOverlay) {
             isRowVisible(oldContent, host: openHost)
         }
-        try clickText(oldContent, in: openHost, window: openWindow)
+        if !isOverlay, manualPopover {
+            let frame = try textFrame(oldContent, in: openHost)
+            let clip = resultsScroll.contentView
+            let visible = frame.intersection(openWindow.convertToScreen(clip.convert(clip.bounds, to: nil)))
+            try expect(!visible.isEmpty, "Old row has no visible hit target")
+            let screenTop = NSScreen.screens[0].frame.maxY
+            fputs("ROWCLICK: \(Int(visible.midX)),\(Int(screenTop - visible.midY)) frame=\(frame) visible=\(visible) key=\(openWindow.isKeyWindow)\n", stderr)
+            for _ in 0..<100 {
+                if !searchHasFocus(field, in: openWindow) { break }
+                try await Task.sleep(nanoseconds: 100_000_000)
+            }
+        } else {
+            try clickText(oldContent, in: openHost, window: openWindow)
+        }
         try await settle()
         let before = try textFrame(oldContent, in: openHost)
         try expect(isRowVisible(oldContent, host: openHost), "\(name): old selection is not visible")
