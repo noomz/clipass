@@ -72,6 +72,8 @@ struct NativeBrowserChecks {
                     try await exercisePreview(isOverlay: true)
                     try await exerciseHistoryActions(isOverlay: false)
                     try await exerciseHistoryActions(isOverlay: true)
+                    try await exerciseImage(isOverlay: false)
+                    try await exerciseImage(isOverlay: true)
                     try await exerciseSummon(isOverlay: true)
                     if let fixturePath = ProcessInfo.processInfo.environment["CLIPASS_PARITY_FIXTURE"] {
                         let fixture = try Data(contentsOf: URL(fileURLWithPath: fixturePath))
@@ -224,7 +226,7 @@ struct NativeBrowserChecks {
         for item in try context.fetch(FetchDescriptor<ClipboardItem>()) { context.delete(item) }
         try context.save()
         try await settle()
-        try expect(text(in: host).contains("Copy text to get started."), "\(name): empty-history explanation missing")
+        try expect(text(in: host).contains("Copy text or images to get started."), "\(name): empty-history explanation missing")
         try capture(host, name: "\(name)-empty-history")
         print("PASS: \(name)")
     }

@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 extension View {
@@ -24,14 +25,21 @@ private struct ClipboardBrowserPreview: View {
     let patterns: [RedactionPattern]
     let focus: FocusState<ClipboardBrowserState.Focus?>.Binding
     @Environment(\.clipboardBrowserStyle) private var style
+    // Decoded once when the preview opens; reading imageData loads its external file.
+    @State private var image: (picture: NSImage, width: Int, height: Int)?
+
+    private var metadata: [String] {
+        var parts = [item.sourceAppDisplayName ?? "Unknown app", item.timestamp.formatted(date: .abbreviated, time: .shortened)]
+        if let image { parts.append("\(image.width) × \(image.height) px") }
+        return parts
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Preview")
                 .font(.system(size: 12, weight: .semibold))
                 .accessibilityAddTraits(.isHeader)
-            Text([item.sourceAppDisplayName ?? "Unknown app", item.timestamp.formatted(date: .abbreviated, time: .shortened)]
-                .joined(separator: " · "))
+            Text(metadata.joined(separator: " · "))
                 .font(.system(size: 10))
                 .foregroundStyle(style.muted)
             if !tags.isEmpty {
@@ -40,11 +48,21 @@ private struct ClipboardBrowserPreview: View {
                     .foregroundStyle(style.muted)
             }
             ScrollView {
-                Text(DisplayFormatter.redact(item.content, patterns: patterns))
-                    .font(.system(size: 12, design: .monospaced))
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(8)
+                if let image {
+                    Image(nsImage: image.picture)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: image.picture.size.width, maxHeight: image.picture.size.height)
+                        .frame(maxWidth: .infinity)
+                        .padding(8)
+                        .accessibilityLabel(item.content)
+                } else if !item.isImage {
+                    Text(DisplayFormatter.redact(item.content, patterns: patterns))
+                        .font(.system(size: 12, design: .monospaced))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(8)
+                }
             }
             .background(style.searchFill, in: RoundedRectangle(cornerRadius: 6))
             .focusable()
@@ -55,6 +73,13 @@ private struct ClipboardBrowserPreview: View {
         .padding(.horizontal, 12)
         .padding(.bottom, 6)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onAppear(perform: loadImage)
+    }
+
+    private func loadImage() {
+        guard let data = item.imageData, let picture = NSImage(data: data),
+              let size = ClipboardCapture.pixelSize(of: data) else { return }
+        image = (picture, size.width, size.height)
     }
 }
 

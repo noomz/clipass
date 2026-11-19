@@ -280,7 +280,7 @@ struct ClipboardOverlayView: View {
                                 copySelectedAndClose()
                             },
                             onPreview: togglePreview,
-                            onEdit: {
+                            onEdit: item.isImage ? nil : {
                                 selectItem(item.id)
                                 enterEditMode(for: item)
                             },
@@ -326,6 +326,7 @@ struct ClipboardOverlayView: View {
     }
 
     private func enterEditMode(for item: ClipboardItem) {
+        guard !item.isImage else { return }
         editorContent = item.content
         withAnimation(.easeOut(duration: 0.15)) {
             editingItemID = item.id

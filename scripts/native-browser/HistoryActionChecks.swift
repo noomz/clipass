@@ -77,7 +77,7 @@ extension NativeBrowserChecks {
         print("PASS: \(name) V13–V14 item actions, selection reconciliation, safe confirmation and Undo")
     }
 
-    private static func rowMenu(_ label: String, in host: NSView, window: NSWindow) throws -> NSMenu {
+    static func rowMenu(_ label: String, in host: NSView, window: NSWindow) throws -> NSMenu {
         let rect = window.convertFromScreen(try textFrame(label, in: host))
         let point = NSPoint(x: rect.midX, y: rect.midY)
         func receiver(in view: NSView) -> RightClickReceiver.RightClickNSView? {
