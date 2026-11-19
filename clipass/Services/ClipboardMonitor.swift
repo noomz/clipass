@@ -186,82 +186,107 @@ class ClipboardMonitor {
             }
         }
 
-        guard let content = pasteboard.string(forType: .string) else { return }
+        // Image encoding happens here, on the timer queue, not on main.
+        guard let captured = ClipboardCapture.read(from: pasteboard) else { return }
 
         let sourceApp = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
 
         DispatchQueue.main.async { [weak self] in
             guard let self = self, let context = self.modelContext else { return }
-
-            // Apply transforms if engine is available
-            var transformedContent = content
-            if let engine = self.transformEngine {
-                transformedContent = engine.transform(content, sourceApp: sourceApp)
+            switch captured {
+            case .text(let content): self.recordText(content, sourceApp: sourceApp, context: context)
+            case .image(let image): self.recordImage(image, sourceApp: sourceApp, context: context)
             }
-
-            // Update clipboard if content was transformed
-            if transformedContent != content {
-                self.pasteboard.clearContents()
-                self.pasteboard.setString(transformedContent, forType: .string)
-                // Update lastChangeCount to avoid re-polling our own change
-                self.changeCountLock.lock()
-                self.lastChangeCount = self.pasteboard.changeCount
-                self.changeCountLock.unlock()
-            }
-
-            // Check ignored apps
-            let appDescriptor = FetchDescriptor<IgnoredApp>()
-            if let ignoredApps = try? context.fetch(appDescriptor),
-               let sourceApp = sourceApp {
-                for ignoredApp in ignoredApps where ignoredApp.isEnabled {
-                    if sourceApp == ignoredApp.bundleId || sourceApp.contains(ignoredApp.bundleId) {
-                        return // Skip ignored app
-                    }
-                }
-            }
-
-            // Check ignored patterns
-            let patternDescriptor = FetchDescriptor<IgnoredPattern>()
-            if let ignoredPatterns = try? context.fetch(patternDescriptor) {
-                for ignoredPattern in ignoredPatterns where ignoredPattern.isEnabled {
-                    if let regex = self.getRegex(for: ignoredPattern),
-                       transformedContent.contains(regex) {
-                        return // Skip content matching ignore pattern
-                    }
-                }
-            }
-
-            // Deduplicate: if this content already exists in history,
-            // move it to the top by updating its timestamp instead of
-            // inserting a new row.
-            let searchContent = transformedContent
-            var existingDescriptor = FetchDescriptor<ClipboardItem>(
-                predicate: #Predicate { $0.content == searchContent }
-            )
-            existingDescriptor.fetchLimit = 1
-            if let existing = try? context.fetch(existingDescriptor).first {
-                existing.timestamp = Date()
-                existing.sourceApp = sourceApp
-            } else {
-                let item = ClipboardItem(
-                    content: transformedContent,
-                    sourceApp: sourceApp,
-                    timestamp: Date()
-                )
-                context.insert(item)
-            }
-            self.lastSavedContent = transformedContent
-
-            // Prune old items if exceeding maxItems
-            self.pruneOldItems(context: context)
-
-            if (try? context.save()) != nil {
-                self.captureSubject.send()
-            }
-
-            // Execute hooks after save
-            self.hookEngine?.executeHooks(content: transformedContent, sourceApp: sourceApp)
         }
+    }
+
+    private func recordText(_ content: String, sourceApp: String?, context: ModelContext) {
+        // Apply transforms if engine is available
+        var transformedContent = content
+        if let engine = transformEngine {
+            transformedContent = engine.transform(content, sourceApp: sourceApp)
+        }
+
+        // Update clipboard if content was transformed
+        if transformedContent != content {
+            pasteboard.clearContents()
+            pasteboard.setString(transformedContent, forType: .string)
+            // Update lastChangeCount to avoid re-polling our own change
+            changeCountLock.lock()
+            lastChangeCount = pasteboard.changeCount
+            changeCountLock.unlock()
+        }
+
+        if isIgnored(sourceApp, context: context) { return }
+
+        // Check ignored patterns
+        let patternDescriptor = FetchDescriptor<IgnoredPattern>()
+        if let ignoredPatterns = try? context.fetch(patternDescriptor) {
+            for ignoredPattern in ignoredPatterns where ignoredPattern.isEnabled {
+                if let regex = getRegex(for: ignoredPattern),
+                   transformedContent.contains(regex) {
+                    return // Skip content matching ignore pattern
+                }
+            }
+        }
+
+        // Deduplicate: if this content already exists in history,
+        // move it to the top by updating its timestamp instead of
+        // inserting a new row. Image labels never match text.
+        let searchContent = transformedContent
+        var existingDescriptor = FetchDescriptor<ClipboardItem>(
+            predicate: #Predicate { $0.content == searchContent && $0.imageHash == nil }
+        )
+        existingDescriptor.fetchLimit = 1
+        if let existing = try? context.fetch(existingDescriptor).first {
+            existing.timestamp = Date()
+            existing.sourceApp = sourceApp
+        } else {
+            let item = ClipboardItem(
+                content: transformedContent,
+                sourceApp: sourceApp,
+                timestamp: Date()
+            )
+            context.insert(item)
+        }
+        lastSavedContent = transformedContent
+
+        // Prune old items if exceeding maxItems
+        pruneOldItems(context: context)
+
+        if (try? context.save()) != nil {
+            captureSubject.send()
+        }
+
+        // Execute hooks after save
+        hookEngine?.executeHooks(content: transformedContent, sourceApp: sourceApp)
+    }
+
+    // Transforms would rewrite the pasteboard as text, and patterns and hooks expect text, so images skip all three.
+    private func recordImage(_ image: CapturedImage, sourceApp: String?, context: ModelContext) {
+        if isIgnored(sourceApp, context: context) { return }
+
+        let hash: String? = image.hash
+        var existingDescriptor = FetchDescriptor<ClipboardItem>(predicate: #Predicate { $0.imageHash == hash })
+        existingDescriptor.fetchLimit = 1
+        if let existing = try? context.fetch(existingDescriptor).first {
+            existing.timestamp = Date()
+            existing.sourceApp = sourceApp
+        } else {
+            context.insert(ClipboardItem(content: image.label, sourceApp: sourceApp, timestamp: Date(),
+                                         imageData: image.png, thumbnailData: image.thumbnail, imageHash: image.hash))
+        }
+
+        pruneOldItems(context: context)
+
+        if (try? context.save()) != nil {
+            captureSubject.send()
+        }
+    }
+
+    private func isIgnored(_ sourceApp: String?, context: ModelContext) -> Bool {
+        guard let sourceApp, let ignoredApps = try? context.fetch(FetchDescriptor<IgnoredApp>()) else { return false }
+        return ignoredApps.contains { $0.isEnabled && (sourceApp == $0.bundleId || sourceApp.contains($0.bundleId)) }
     }
 
     private func pruneOldItems(context: ModelContext) {
