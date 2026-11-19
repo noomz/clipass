@@ -8,6 +8,9 @@ struct ClearedClipboardHistory {
         let sourceApp: String?
         let timestamp: Date
         let tagIDs: [UUID]
+        let imageData: Data?
+        let thumbnailData: Data?
+        let imageHash: String?
 
         init(_ item: ClipboardItem) {
             id = item.id
@@ -15,6 +18,9 @@ struct ClearedClipboardHistory {
             sourceApp = item.sourceApp
             timestamp = item.timestamp
             tagIDs = item.tags.map(\.id)
+            imageData = item.imageData
+            thumbnailData = item.thumbnailData
+            imageHash = item.imageHash
         }
     }
 
@@ -39,7 +45,8 @@ struct ClearedClipboardHistory {
         try Self.saveChanges(in: context) {
             for entry in entries where !existing.contains(entry.id) {
                 let item = ClipboardItem(id: entry.id, content: entry.content, sourceApp: entry.sourceApp,
-                                         timestamp: entry.timestamp)
+                                         timestamp: entry.timestamp, imageData: entry.imageData,
+                                         thumbnailData: entry.thumbnailData, imageHash: entry.imageHash)
                 context.insert(item)
                 item.tags = entry.tagIDs.compactMap { tagsByID[$0] }
             }
