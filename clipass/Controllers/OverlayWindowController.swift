@@ -65,18 +65,28 @@ final class OverlayPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
 
-    /// Dismiss when the panel loses key status.
+    /// Dismiss when the panel loses key status. A drag into another app also resigns key;
+    /// ordering out then would cancel the drop, so the dismiss waits until the drag ends.
     override func resignKey() {
         super.resignKey()
+        if ClipboardDragGate.shared.isActive {
+            ClipboardDragGate.shared.noteOverlayResign(self)
+            return
+        }
 
         // Pitfall 3 guard: if resignKey fires immediately after show (< 0.3 s) it is a
         // spurious call during initialization — ignore it to prevent flash-close.
         guard Date().timeIntervalSince(shownAt) > 0.3 else { return }
 
-        orderOut(nil)
+        dismissAfterDrag()
+    }
 
-        // Notify the controller so it can restore the previous app's focus.
-        NotificationCenter.default.post(name: .overlayDidResignKey, object: nil)
+    func dismissAfterDrag(restoreFocus: Bool = true) {
+        let alreadyResigned = !isKeyWindow
+        orderOut(nil)
+        if alreadyResigned && restoreFocus {
+            NotificationCenter.default.post(name: .overlayDidResignKey, object: nil)
+        }
     }
 
 }

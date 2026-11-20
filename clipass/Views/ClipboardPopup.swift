@@ -141,6 +141,7 @@ struct ClipboardPopup: View {
         .environment(\.clipboardBrowserStyle, style)
         .background(style.surface)
         .frame(width: ClipboardBrowserStyle.popoverSize.width, height: ClipboardBrowserStyle.popoverSize.height)
+        .clipboardDragHost()
         .background {
             ClipboardPopupPresence { visible in
                 isVisible = visible

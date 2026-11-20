@@ -136,6 +136,7 @@ struct ClipboardOverlayView: View {
             }
         }
         .frame(width: ClipboardBrowserStyle.overlaySize.width, height: ClipboardBrowserStyle.overlaySize.height)
+        .clipboardDragHost()
         .clipShape(RoundedRectangle(cornerRadius: theme.cornerRadius))
         .environment(\.clipboardBrowserStyle, style)
         .onAppear {

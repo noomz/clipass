@@ -80,6 +80,9 @@ struct ClipboardBrowserRow<Trailing: View>: View {
         .background(isSelected ? style.selection : isHovered ? style.hover : .clear,
                     in: RoundedRectangle(cornerRadius: style.rowRadius))
         .contentShape(Rectangle())
+        .background {
+            ClipboardDragRowReporter(id: item.id, payload: { item.payload }, label: previewText)
+        }
     }
 
     private var symbol: String {
