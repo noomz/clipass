@@ -81,10 +81,10 @@ final class OverlayPanel: NSPanel {
         dismissAfterDrag()
     }
 
-    func dismissAfterDrag() {
+    func dismissAfterDrag(restoreFocus: Bool = true) {
         let alreadyResigned = !isKeyWindow
         orderOut(nil)
-        if alreadyResigned {
+        if alreadyResigned && restoreFocus {
             NotificationCenter.default.post(name: .overlayDidResignKey, object: nil)
         }
     }

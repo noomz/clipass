@@ -130,7 +130,7 @@ final class ClipboardDragTests: XCTestCase {
         window.orderFront(nil)
         defer {
             window.orderOut(nil)
-            ClipboardDragMonitor.shared.removeFrame(item.id)
+            ClipboardDragMonitor.shared.remove(item.id, from: window)
         }
         host.layoutSubtreeIfNeeded()
         RunLoop.current.run(until: Date().addingTimeInterval(0.15))
@@ -141,11 +141,73 @@ final class ClipboardDragTests: XCTestCase {
     }
 
     @MainActor
-    func testRowFrameConvertsIntoTheWindowAndDoesNotCoverItWithADragView() {
-        let swiftUI = CGRect(x: 8, y: 10, width: 280, height: 52)
-        let converted = ClipboardDragMonitor.windowRect(for: swiftUI, height: 356)
-        XCTAssertEqual(converted, NSRect(x: 8, y: 294, width: 280, height: 52))
+    func testSameItemInTwoWindowsKeepsEachWindowOwnRow() {
+        let item = ClipboardItem(content: "stored secret")
+        let left = hosted(item, width: 200, height: 80)
+        let right = hosted(item, width: 200, height: 80, topSpacer: 60)
+        defer {
+            left.orderOut(nil)
+            right.orderOut(nil)
+            ClipboardDragMonitor.shared.remove(item.id, from: left)
+            ClipboardDragMonitor.shared.remove(item.id, from: right)
+        }
+        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
 
+        XCTAssertEqual(ClipboardDragMonitor.shared.rowID(in: left, at: NSPoint(x: 40, y: 40)), item.id)
+        XCTAssertNil(ClipboardDragMonitor.shared.rowID(in: right, at: NSPoint(x: 40, y: 70)),
+                     "the other window's row frame was used")
+        XCTAssertEqual(ClipboardDragMonitor.shared.rowID(in: right, at: NSPoint(x: 40, y: 8)), item.id)
+    }
+
+    @MainActor
+    func testScrolledAwayRowIsNotADragTargetOutsideTheList() {
+        let item = ClipboardItem(content: "stored secret")
+        let window = NSWindow(contentRect: NSRect(x: 300, y: 300, width: 200, height: 160),
+                              styleMask: [.borderless], backing: .buffered, defer: false)
+        let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 200, height: 80))
+        scroll.documentView = NSView(frame: NSRect(x: 0, y: 0, width: 200, height: 80))
+        let row = NSHostingView(rootView: ClipboardBrowserRow(
+            item: item, previewText: "stored secret", tags: [], isSelected: false, isHovered: false
+        ) { EmptyView() }.clipboardDragHost())
+        row.frame = NSRect(x: 0, y: 100, width: 200, height: 40)
+        scroll.addSubview(row)
+        window.contentView = NSView(frame: NSRect(x: 0, y: 0, width: 200, height: 160))
+        window.contentView?.addSubview(scroll)
+        window.orderFront(nil)
+        defer {
+            window.orderOut(nil)
+            ClipboardDragMonitor.shared.remove(item.id, from: window)
+        }
+        row.layoutSubtreeIfNeeded()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+
+        XCTAssertNil(ClipboardDragMonitor.shared.rowID(in: window, at: NSPoint(x: 40, y: 110)),
+                     "a row outside the list was a drag target")
+    }
+
+    @MainActor
+    private func hosted(_ item: ClipboardItem, width: CGFloat, height: CGFloat, topSpacer: CGFloat = 0) -> NSWindow {
+        let row = ClipboardBrowserRow(
+            item: item, previewText: item.content, tags: [], isSelected: false, isHovered: false
+        ) { EmptyView() }
+        let root = VStack(spacing: 0) {
+            Color.clear.frame(height: topSpacer)
+            row.frame(height: height - topSpacer)
+        }
+        .clipboardDragHost()
+        .frame(width: width, height: height)
+        let host = NSHostingView(rootView: root)
+        let window = NSWindow(contentRect: NSRect(x: 400, y: 400, width: width, height: height),
+                              styleMask: [.borderless], backing: .buffered, defer: false)
+        host.frame = NSRect(x: 0, y: 0, width: width, height: height)
+        window.contentView = host
+        window.orderFront(nil)
+        host.layoutSubtreeIfNeeded()
+        return window
+    }
+
+    @MainActor
+    func testRowDoesNotCoverItselfWithADragView() {
         let item = ClipboardItem(content: "stored secret")
         let host = NSHostingView(rootView: ClipboardBrowserRow(
             item: item, previewText: "stored …", tags: [], isSelected: false, isHovered: false
@@ -169,18 +231,35 @@ final class ClipboardDragTests: XCTestCase {
         let panel = OverlayPanel()
         panel.setFrame(NSRect(x: 120, y: 120, width: 200, height: 120), display: false)
         panel.shownAt = Date().addingTimeInterval(-1)
-        panel.orderFront(nil)
+        let other = NSWindow(contentRect: NSRect(x: 400, y: 400, width: 80, height: 60),
+                             styleMask: [.titled], backing: .buffered, defer: false)
+        defer { other.orderOut(nil) }
+        panel.makeKeyAndOrderFront(nil)
         ClipboardDragGate.shared.begin(window: panel)
-        panel.resignKey()
+        other.makeKeyAndOrderFront(nil)
         XCTAssertTrue(panel.isVisible, "overlay dismissed while the drag was active")
+        var restored = false
+        let token = NotificationCenter.default.addObserver(
+            forName: .overlayDidResignKey, object: nil, queue: nil) { _ in restored = true }
         ClipboardDragGate.shared.end(operation: .copy)
         XCTAssertFalse(panel.isVisible)
+        XCTAssertFalse(restored, "a completed drop restored the app that was in front before the overlay")
+        NotificationCenter.default.removeObserver(token)
 
         panel.shownAt = Date().addingTimeInterval(-1)
-        panel.orderFront(nil)
+        panel.makeKeyAndOrderFront(nil)
         ClipboardDragGate.shared.begin(window: panel)
         ClipboardDragGate.shared.end(operation: [])
         XCTAssertTrue(panel.isVisible, "a cancelled drag that never left the overlay dismissed it")
-        panel.orderOut(nil)
+
+        ClipboardDragGate.shared.begin(window: panel)
+        other.makeKeyAndOrderFront(nil)
+        restored = false
+        let cancel = NotificationCenter.default.addObserver(
+            forName: .overlayDidResignKey, object: nil, queue: nil) { _ in restored = true }
+        ClipboardDragGate.shared.end(operation: [])
+        XCTAssertFalse(panel.isVisible)
+        XCTAssertTrue(restored, "a cancelled drag that left the overlay did not return to the previous app")
+        NotificationCenter.default.removeObserver(cancel)
     }
 }

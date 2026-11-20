@@ -39,9 +39,7 @@ final class ClipboardDragGate {
         overlayResign = nil
         suppressed = []
         isActive = false
-        if dropped || panel != nil {
-            panel?.dismissAfterDrag()
-        }
+        panel?.dismissAfterDrag(restoreFocus: !dropped)
         for window in windows {
             if dropped {
                 ClipboardDragHold.close(window)
@@ -170,40 +168,22 @@ enum ClipboardDragHold {
     }
 }
 
-struct ClipboardDragFrame: Equatable {
-    let id: UUID
-    /// SwiftUI coordinates in `clipass-browser`: origin at the top left, y grows downward.
-    let frame: CGRect
+private struct ClipboardDragRow {
+    var frame: NSRect
+    var payload: () -> ClipboardPayload
+    var label: String
 }
 
 @MainActor
 final class ClipboardDragMonitor {
     static let shared = ClipboardDragMonitor()
     static let startDistance: CGFloat = 4
-    static let space = "clipass-browser"
 
     private var monitors: [ObjectIdentifier: Any] = [:]
     private var closeObservers: [ObjectIdentifier: NSObjectProtocol] = [:]
     private var sources: [ObjectIdentifier: ClipboardDragSource] = [:]
-    private var frames: [UUID: ClipboardDragFrame] = [:]
-    private var payloads: [UUID: () -> ClipboardPayload] = [:]
-    private var labels: [UUID: String] = [:]
+    private var rows: [ObjectIdentifier: [UUID: ClipboardDragRow]] = [:]
     private var down: (window: ObjectIdentifier, point: NSPoint, id: UUID)?
-
-    func setPayload(_ id: UUID, _ payload: @escaping () -> ClipboardPayload, label: String) {
-        payloads[id] = payload
-        labels[id] = label
-    }
-
-    func setFrame(_ id: UUID, _ frame: CGRect) {
-        frames[id] = ClipboardDragFrame(id: id, frame: frame)
-    }
-
-    func removeFrame(_ id: UUID) {
-        frames[id] = nil
-        payloads[id] = nil
-        labels[id] = nil
-    }
 
     func register(_ source: ClipboardDragSource) {
         guard let window = source.window else { return }
@@ -225,6 +205,17 @@ final class ClipboardDragMonitor {
         if let token = monitors.removeValue(forKey: id) { NSEvent.removeMonitor(token) }
         if let observer = closeObservers.removeValue(forKey: id) { NotificationCenter.default.removeObserver(observer) }
         sources[id] = nil
+        rows[id] = nil
+    }
+
+    func set(_ id: UUID, in window: NSWindow, frame: NSRect, payload: @escaping () -> ClipboardPayload, label: String) {
+        rows[ObjectIdentifier(window), default: [:]][id] = ClipboardDragRow(frame: frame, payload: payload, label: label)
+    }
+
+    func remove(_ id: UUID, from window: NSWindow) {
+        let key = ObjectIdentifier(window)
+        rows[key]?[id] = nil
+        if rows[key]?.isEmpty == true { rows[key] = nil }
     }
 
     func handle(_ event: NSEvent) {
@@ -241,7 +232,8 @@ final class ClipboardDragMonitor {
                   Self.shouldStart(from: down.point, to: event.locationInWindow),
                   let source = sources[down.window] else { return }
             self.down = nil
-            source.beginDrag(with: event, payload: payloads[down.id] ?? { .text("") }, label: labels[down.id] ?? "")
+            let row = rows[down.window]?[down.id]
+            source.beginDrag(with: event, payload: row?.payload ?? { .text("") }, label: row?.label ?? "")
         case .leftMouseUp:
             down = nil
         default:
@@ -255,14 +247,8 @@ final class ClipboardDragMonitor {
         return dx * dx + dy * dy >= startDistance * startDistance
     }
 
-    /// `frame` is in the browser coordinate space. `height` is that space's AppKit height.
-    static func windowRect(for frame: CGRect, height: CGFloat) -> NSRect {
-        NSRect(x: frame.minX, y: height - frame.maxY, width: frame.width, height: frame.height)
-    }
-
     func rowID(in window: NSWindow, at point: NSPoint) -> UUID? {
-        let height = window.contentView?.bounds.height ?? 0
-        return frames.values.first { Self.windowRect(for: $0.frame, height: height).contains(point) }?.id
+        rows[ObjectIdentifier(window)]?.first { $0.value.frame.contains(point) }?.key
     }
 }
 
@@ -323,34 +309,76 @@ struct ClipboardDragSourceView: NSViewRepresentable {
     func updateNSView(_ view: ClipboardDragSource, context: Context) {}
 }
 
-struct ClipboardDragRowReporter: View {
+struct ClipboardDragRowReporter: NSViewRepresentable {
     let id: UUID
     let payload: () -> ClipboardPayload
     let label: String
 
-    var body: some View {
-        GeometryReader { proxy in
-            let frame = proxy.frame(in: .named(ClipboardDragMonitor.space))
-            Color.clear
-                .onAppear {
-                    ClipboardDragMonitor.shared.setPayload(id, payload, label: label)
-                    ClipboardDragMonitor.shared.setFrame(id, frame)
-                }
-                .onChange(of: frame) { _, frame in
-                    ClipboardDragMonitor.shared.setFrame(id, frame)
-                }
+    func makeNSView(context: Context) -> ClipboardDragRowAnchor {
+        let view = ClipboardDragRowAnchor()
+        view.update(id: id, payload: payload, label: label)
+        return view
+    }
+
+    func updateNSView(_ view: ClipboardDragRowAnchor, context: Context) {
+        view.update(id: id, payload: payload, label: label)
+    }
+}
+
+final class ClipboardDragRowAnchor: NSView {
+    private var id = UUID()
+    private var payload: () -> ClipboardPayload = { .text("") }
+    private var label = ""
+    private weak var reportedWindow: NSWindow?
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    func update(id: UUID, payload: @escaping () -> ClipboardPayload, label: String) {
+        self.id = id
+        self.payload = payload
+        self.label = label
+        publish()
+    }
+
+    override func layout() {
+        super.layout()
+        publish()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window == nil, let reportedWindow {
+            ClipboardDragMonitor.shared.remove(id, from: reportedWindow)
+            self.reportedWindow = nil
         }
-        .allowsHitTesting(false)
-        .onDisappear { ClipboardDragMonitor.shared.removeFrame(id) }
-        .onChange(of: label) { _, label in ClipboardDragMonitor.shared.setPayload(id, payload, label: label) }
+        publish()
+    }
+
+    private func publish() {
+        guard let window else { return }
+        reportedWindow = window
+        guard let frame = visibleFrame() else {
+            ClipboardDragMonitor.shared.remove(id, from: window)
+            return
+        }
+        ClipboardDragMonitor.shared.set(id, in: window, frame: frame, payload: payload, label: label)
+    }
+
+    /// A scrolled-away row can still report a frame over the search field. Only the visible list counts.
+    private func visibleFrame() -> NSRect? {
+        let row = convert(bounds, to: nil)
+        guard let scroll = enclosingScrollView else { return row }
+        let clip = scroll.contentView.convert(scroll.contentView.bounds, to: nil)
+        let visible = row.intersection(clip)
+        if visible.isNull || visible.width < 1 || visible.height < 1 { return nil }
+        return visible
     }
 }
 
 extension View {
     func clipboardDragHost() -> some View {
-        coordinateSpace(name: ClipboardDragMonitor.space)
-            .background(alignment: .topLeading) {
-                ClipboardDragSourceView().frame(width: 1, height: 1).allowsHitTesting(false)
-            }
+        background(alignment: .topLeading) {
+            ClipboardDragSourceView().frame(width: 1, height: 1).allowsHitTesting(false)
+        }
     }
 }
