@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct ClipboardBrowserRow<Trailing: View>: View {
@@ -17,13 +18,23 @@ struct ClipboardBrowserRow<Trailing: View>: View {
         let iconSize: CGFloat = style.compact ? 24 : 28
         let source = item.sourceAppDisplayName
         HStack(spacing: style.compact ? 8 : 12) {
-            Image(systemName: symbol)
-                .font(.system(size: style.compact ? 13 : 15))
-                .foregroundStyle(isSelected ? foreground : style.iconInk)
-                .frame(width: iconSize, height: iconSize)
-                .background(isSelected ? foreground.opacity(0.10) : style.iconFill, in: iconShape)
-                .overlay { iconShape.strokeBorder(isSelected ? foreground.opacity(0.32) : style.controlBorder) }
-                .accessibilityHidden(true)
+            Group {
+                if let thumbnail = item.thumbnailData.flatMap(NSImage.init(data:)) {
+                    Image(nsImage: thumbnail)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: iconSize, height: iconSize)
+                        .clipShape(iconShape)
+                } else {
+                    Image(systemName: symbol)
+                        .font(.system(size: style.compact ? 13 : 15))
+                        .foregroundStyle(isSelected ? foreground : style.iconInk)
+                        .frame(width: iconSize, height: iconSize)
+                        .background(isSelected ? foreground.opacity(0.10) : style.iconFill, in: iconShape)
+                }
+            }
+            .overlay { iconShape.strokeBorder(isSelected ? foreground.opacity(0.32) : style.controlBorder) }
+            .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
                 Text(previewText)
                     .font(.system(size: style.compact ? 12 : style.theme?.bodyFontSize ?? 13,

@@ -6,11 +6,12 @@
 
 <p align="center">A macOS menu bar clipboard manager with intelligent transforms and automation hooks.</p>
 
-clipass lives in your menu bar, monitors the system clipboard, stores text history, and can automatically clean up clipboard content using regex-based rules. It also supports triggering external shell commands when clipboard content matches certain patterns.
+clipass lives in your menu bar, monitors the system clipboard, stores text and image history, and can automatically clean up clipboard content using regex-based rules. It also supports triggering external shell commands when clipboard content matches certain patterns.
 
 ## Features
 
-- **Clipboard History** - Stores up to 100 recent text items with one-click re-copy
+- **Clipboard History** - Stores up to 100 recent text and image items with one-click re-copy
+- **Images** - Captures images copied to the clipboard, such as screenshots and a browser's Copy Image. Image rows show a thumbnail, the preview shows the full image and its pixel size, and Copy puts the image back on the clipboard. A copy that also carries text, such as a file copied in Finder, is stored as text. Images skip transform rules, ignore patterns, and hooks, and images larger than 20 MB are not stored
 - **Global Hotkey** - `Cmd+Shift+V` to open the popup (customizable)
 - **Search** - Real-time filtering across your clipboard history
 - **Recent and Pinned Tabs** - Recent shows all history newest first; pin important entries to list them in the Pinned tab; pinned items are exempt from auto-cleanup and max-items pruning
@@ -66,7 +67,7 @@ Run behavior tests with `swift test`. To exercise both native clipboard views, r
 bash scripts/verify-native-browser.sh
 ```
 
-The native check needs a logged-in macOS desktop. It builds a disposable copy under `/tmp`, uses in-memory history, and does not start capture or write to the clipboard. It checks tabs, shared search, empty states, focus retention, chronological row placement, and revealing search results after scrolling. It also checks that Return still copies from the overlay list through a test callback.
+The native check needs a logged-in macOS desktop. It builds a disposable copy under `/tmp`, uses in-memory history, and does not start capture or write to the clipboard. It checks tabs, shared search, empty states, focus retention, chronological row placement, and revealing search results after scrolling. It also checks that Return still copies from the overlay list through a test callback, and that an image item shows its row, menu, and preview and copies back as an image.
 
 The workspace includes light and dark renders of the shared tabs. These renders do not prove native window compositing. To save window screenshots, set `CLIPASS_NATIVE_SCREENSHOTS=1`. Screen Recording permission is required. The script prints its workspace path. These checks host the production views in native windows. They do not replace the menu-bar lifecycle and global-shortcut acceptance checks in `SPEC.md`.
 
@@ -90,7 +91,7 @@ Releases need the Developer ID identity, a `notarytool` keychain profile, and th
 ## Usage
 
 1. Launch clipass - it appears as a clipboard icon in your menu bar
-2. Copy text normally - clipass captures it in the background
+2. Copy text or images normally - clipass captures them in the background
 3. Click the menu bar icon or press `Cmd+Shift+V` to open the popup
 4. Select a history item. In the popover, click **Copy**. In the overlay, press Return to copy and close.
 5. Use the search field to filter history
@@ -129,6 +130,7 @@ clipass/
 ├── clipassApp.swift              # App entry point, service wiring, auto-cleanup
 ├── Models/
 │   ├── ClipboardItem.swift       # Clipboard history item with pinning (SwiftData)
+│   ├── ClipboardPayload.swift    # Text or image payload written back to the pasteboard
 │   ├── TransformRule.swift       # Regex transform rule (SwiftData)
 │   ├── Hook.swift                # Automation hook (SwiftData)
 │   ├── ContextAction.swift       # User-defined shell-command context actions (SwiftData)
@@ -137,6 +139,7 @@ clipass/
 │   └── RedactionPattern.swift    # Sensitive data masking patterns (SwiftData)
 ├── Services/
 │   ├── ClipboardMonitor.swift    # Clipboard polling, filtering & event dispatch
+│   ├── ClipboardCapture.swift    # Reads text or images from the pasteboard
 │   ├── TransformEngine.swift     # Regex transform pipeline
 │   ├── HookEngine.swift          # External command execution
 │   ├── ContentAnalyzer.swift     # Content type detection (URL, email, JSON, etc.)

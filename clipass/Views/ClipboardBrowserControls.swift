@@ -396,7 +396,7 @@ struct ClipboardBrowserEmptyView: View {
 
     private var explanation: String {
         switch state {
-        case .history: return "Copy text to get started."
+        case .history: return "Copy text or images to get started."
         case .pinned: return "Pin a useful copy from its action menu."
         case .noMatches: return "Try different text or a tag filter such as tag:work."
         }

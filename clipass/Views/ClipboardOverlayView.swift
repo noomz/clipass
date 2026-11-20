@@ -5,7 +5,7 @@ struct ClipboardOverlayView: View {
     // Passed in to avoid reaching the controller singleton during NSHostingView initialization.
     unowned let panel: OverlayPanel
     let monitor: ClipboardMonitor
-    var onCopyAndClose: (String) -> Void = { OverlayWindowController.shared.copyAndHide(content: $0) }
+    var onCopyAndClose: (ClipboardPayload) -> Void = { OverlayWindowController.shared.copyAndHide($0) }
     var onDismiss: () -> Void = { OverlayWindowController.shared.hide() }
 
     @Environment(\.colorScheme) private var colorScheme
@@ -83,7 +83,7 @@ struct ClipboardOverlayView: View {
         switch browser.handleKeyboard(action, focus: focus) {
         case .passThrough: return false
         case .dismiss: onDismiss()
-        case .copyAndClose(let content): onCopyAndClose(content)
+        case .copyAndClose(let id): copyAndClose(id)
         case .update(let focus, let reveal):
             if focus { applyBrowserFocus(selectQuery: action == .focusSearch) }
             if reveal { revealRequest = UUID() }
@@ -280,7 +280,7 @@ struct ClipboardOverlayView: View {
                                 copySelectedAndClose()
                             },
                             onPreview: togglePreview,
-                            onEdit: {
+                            onEdit: item.isImage ? nil : {
                                 selectItem(item.id)
                                 enterEditMode(for: item)
                             },
@@ -318,11 +318,15 @@ struct ClipboardOverlayView: View {
     }
 
     private func copySelectedAndClose() {
-        guard let item = browser.selectedItem else { return }
-        onCopyAndClose(item.content)
+        if let id = browser.selectedItem?.id { copyAndClose(id) }
+    }
+
+    private func copyAndClose(_ id: UUID) {
+        if let item = items.first(where: { $0.id == id }) { onCopyAndClose(item.payload) }
     }
 
     private func enterEditMode(for item: ClipboardItem) {
+        guard !item.isImage else { return }
         editorContent = item.content
         withAnimation(.easeOut(duration: 0.15)) {
             editingItemID = item.id

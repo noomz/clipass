@@ -55,7 +55,7 @@ struct ClipboardItemMenu: View {
         let menu = NSMenu()
 
         // Primary actions
-        addAction(to: menu, title: "Copy") { copyTransformed(item.content) }
+        addAction(to: menu, title: "Copy") { item.payload.write(to: .general) }
         addAction(to: menu, title: item.isPinned ? "Unpin" : "Pin", action: onTogglePin)
 
         menu.addItem(.separator())
@@ -75,6 +75,27 @@ struct ClipboardItemMenu: View {
         }
         addAction(to: tagMenu, title: "+ New Tag...", action: presentNewTagAlert)
 
+        // Image items get no text transforms, content-aware actions, or custom actions.
+        if !item.isImage { addTextActions(to: menu) }
+
+        menu.addItem(.separator())
+
+        // Delete
+        let deleteItem = NSMenuItem(title: "Delete", action: nil, keyEquivalent: "")
+        deleteItem.representedObject = { [onDelete] in onDelete() } as () -> Void
+        deleteItem.target = ContextMenuActionTarget.shared
+        deleteItem.action = #selector(ContextMenuActionTarget.performAction(_:))
+        // Red text for destructive
+        deleteItem.attributedTitle = NSAttributedString(
+            string: "Delete",
+            attributes: [.foregroundColor: NSColor.systemRed]
+        )
+        menu.addItem(deleteItem)
+
+        return menu
+    }
+
+    private func addTextActions(to menu: NSMenu) {
         menu.addItem(.separator())
 
         // Copy As... submenu
@@ -137,22 +158,6 @@ struct ClipboardItemMenu: View {
                 }
             }
         }
-
-        menu.addItem(.separator())
-
-        // Delete
-        let deleteItem = NSMenuItem(title: "Delete", action: nil, keyEquivalent: "")
-        deleteItem.representedObject = { [onDelete] in onDelete() } as () -> Void
-        deleteItem.target = ContextMenuActionTarget.shared
-        deleteItem.action = #selector(ContextMenuActionTarget.performAction(_:))
-        // Red text for destructive
-        deleteItem.attributedTitle = NSAttributedString(
-            string: "Delete",
-            attributes: [.foregroundColor: NSColor.systemRed]
-        )
-        menu.addItem(deleteItem)
-
-        return menu
     }
 
     @discardableResult

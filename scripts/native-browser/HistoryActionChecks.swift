@@ -20,7 +20,7 @@ extension NativeBrowserChecks {
         context.insert(ContextAction(name: "Example action", command: "", contentFilter: "Delete this copy"))
         try context.save()
 
-        var copied: String?
+        var copied: ClipboardPayload?
         let (host, window) = showInterface(isOverlay: isOverlay, context: context) { copied = $0 }
         defer { window.close() }
         try await waitForInterface(host)
@@ -42,7 +42,7 @@ extension NativeBrowserChecks {
         try await settle()
         try expect(!text(in: host).contains("Delete this copy"), "\(name): deleted row is still visible")
         try press("Copy & close", in: host)
-        try expect(copied == "Restore this copy", "\(name): deletion left stale selection")
+        try expect(copied == .text("Restore this copy"), "\(name): deletion left stale selection")
 
         try await openClearConfirmation(in: host, window: window)
         try expect(text(in: host).contains("Pinned items will be kept."), "\(name): no explanation that pins are kept")
@@ -62,7 +62,7 @@ extension NativeBrowserChecks {
         try expect(!text(in: host).contains("Restore this copy") && text(in: host).contains("Keep this pin"),
                    "\(name): Clear Recent removed the wrong rows")
         try press("Copy & close", in: host)
-        try expect(copied == "Keep this pin", "\(name): Clear Recent left stale selection")
+        try expect(copied == .text("Keep this pin"), "\(name): Clear Recent left stale selection")
 
         context.insert(ClipboardItem(content: "Copied after clearing"))
         try context.save()
@@ -77,7 +77,7 @@ extension NativeBrowserChecks {
         print("PASS: \(name) V13–V14 item actions, selection reconciliation, safe confirmation and Undo")
     }
 
-    private static func rowMenu(_ label: String, in host: NSView, window: NSWindow) throws -> NSMenu {
+    static func rowMenu(_ label: String, in host: NSView, window: NSWindow) throws -> NSMenu {
         let rect = window.convertFromScreen(try textFrame(label, in: host))
         let point = NSPoint(x: rect.midX, y: rect.midY)
         func receiver(in view: NSView) -> RightClickReceiver.RightClickNSView? {

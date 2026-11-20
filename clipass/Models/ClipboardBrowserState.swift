@@ -7,6 +7,16 @@ struct ClipboardBrowserState: Equatable {
         let timestamp: Date
         let isPinned: Bool
         let tagNames: [String]
+        let isImage: Bool
+
+        init(id: UUID, content: String, timestamp: Date, isPinned: Bool, tagNames: [String], isImage: Bool = false) {
+            self.id = id
+            self.content = content
+            self.timestamp = timestamp
+            self.isPinned = isPinned
+            self.tagNames = tagNames
+            self.isImage = isImage
+        }
     }
 
     enum Tab: CaseIterable, Hashable {
@@ -63,7 +73,7 @@ struct ClipboardBrowserState: Equatable {
     enum ActionResult: Equatable {
         case handled
         case unhandled
-        case copyAndClose(String)
+        case copyAndClose(UUID)
         case dismiss
     }
 
@@ -167,7 +177,7 @@ struct ClipboardBrowserState: Equatable {
     }
 
     mutating func beginEditing() {
-        guard let item = selectedItem else { return }
+        guard let item = selectedItem, !item.isImage else { return }
         edit = Edit(itemID: item.id, draft: item.content)
         presentation = .list
         transientLayer = nil
@@ -181,7 +191,7 @@ struct ClipboardBrowserState: Equatable {
     enum KeyboardEffect: Equatable {
         case passThrough
         case dismiss
-        case copyAndClose(String)
+        case copyAndClose(UUID)
         case update(focus: Bool, reveal: Bool)
     }
 
@@ -191,7 +201,7 @@ struct ClipboardBrowserState: Equatable {
         switch handle(action, isActiveInterface: true) {
         case .unhandled: return .passThrough
         case .dismiss: return .dismiss
-        case .copyAndClose(let content): return .copyAndClose(content)
+        case .copyAndClose(let id): return .copyAndClose(id)
         case .handled:
             let updateFocus = transientLayer == nil && (before.focus != focus || before.transientLayer != nil)
             switch action {
@@ -255,7 +265,7 @@ struct ClipboardBrowserState: Equatable {
         case .copyAndClose:
             guard [.search, .list, .preview].contains(focus), transientLayer == nil,
                   edit == nil, let selectedItem else { return .unhandled }
-            return .copyAndClose(selectedItem.content)
+            return .copyAndClose(selectedItem.id)
         case .back:
             if transientLayer != nil {
                 transientLayer = nil

@@ -47,6 +47,30 @@ final class ClearedClipboardHistoryTests: XCTestCase {
     }
 
     @MainActor
+    func testUndoRestoresImageItems() throws {
+        let container = try ModelContainer(for: ClipboardItem.self, Tag.self,
+                                           configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let context = container.mainContext
+        let png = try TestImages.png(width: 6, height: 3)
+        let image = ClipboardItem(content: "Image 6×3", imageData: png, thumbnailData: Data([7]),
+                                  imageHash: ClipboardCapture.hash(png))
+        let imageID = image.id
+        context.insert(image)
+        try context.save()
+
+        let cleared = try ClearedClipboardHistory.clear(in: context)
+        XCTAssertTrue(try context.fetch(FetchDescriptor<ClipboardItem>()).isEmpty)
+        try cleared.restore(in: context)
+
+        let restored = try XCTUnwrap(try context.fetch(FetchDescriptor<ClipboardItem>()).first)
+        XCTAssertEqual(restored.id, imageID)
+        XCTAssertEqual(restored.payload, .image(png))
+        XCTAssertEqual(restored.thumbnailData, Data([7]))
+        XCTAssertEqual(restored.imageHash, ClipboardCapture.hash(png))
+        XCTAssertEqual(restored.content, "Image 6×3")
+    }
+
+    @MainActor
     func testClearWithOnlyPinsIsANoOp() throws {
         let container = try ModelContainer(for: ClipboardItem.self, Tag.self,
                                            configurations: ModelConfiguration(isStoredInMemoryOnly: true))

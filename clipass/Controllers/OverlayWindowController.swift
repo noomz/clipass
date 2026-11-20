@@ -237,9 +237,8 @@ final class OverlayWindowController {
         previousApp = nil
     }
 
-    func copyAndHide(content: String) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(content, forType: .string)
+    func copyAndHide(_ payload: ClipboardPayload) {
+        payload.write(to: .general)
         hide()
     }
 

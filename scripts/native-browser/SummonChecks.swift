@@ -7,7 +7,7 @@ extension NativeBrowserChecks {
         let container: ModelContainer
         let pasteboard = NSPasteboard.withUniqueName()
         lazy var monitor = ClipboardMonitor(pasteboard: pasteboard)
-        var copied: String?
+        var copied: ClipboardPayload?
         var context: ModelContext { container.mainContext }
 
         init() throws {
@@ -80,7 +80,7 @@ extension NativeBrowserChecks {
         try await settle()
         try press("Copy & close", in: initialHost)
         try await settle()
-        try expect(fixture.copied == CaptureFixture.row(2), "\(name): older pinned selection not established")
+        try expect(fixture.copied == .text(CaptureFixture.row(2)), "\(name): older pinned selection not established")
         try await dismiss(initialWindow, isOverlay: isOverlay)
         let captured = "Newest captured fixture"
         try await fixture.capture(captured)
@@ -138,7 +138,7 @@ extension NativeBrowserChecks {
         try expect(abs(before.midY - after.midY) < 1, "\(name): capture moved browsing viewport by \(after.midY - before.midY) points")
         try press("Copy & close", in: openHost)
         try await settle()
-        try expect(fixture.copied == oldContent, "\(name): capture changed selected row")
+        try expect(fixture.copied == .text(oldContent), "\(name): capture changed selected row")
         try press("Jump to latest", in: openHost)
         try await settle()
         try await assertLatest(newest, in: unchanged, fixture: fixture, isOverlay: isOverlay)
@@ -169,7 +169,7 @@ extension NativeBrowserChecks {
         fixture.copied = nil
         try press("Copy & close", in: host)
         try await settle()
-        try expect(fixture.copied == content, "\(name): summon selected \(String(describing: fixture.copied)) instead of \(content)")
+        try expect(fixture.copied == .text(content), "\(name): summon selected \(String(describing: fixture.copied)) instead of \(content)")
     }
 
     private static func scrollFixtureToBottom(_ scroll: NSScrollView, document: NSView, isOverlay: Bool,

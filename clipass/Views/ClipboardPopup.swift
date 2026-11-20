@@ -19,9 +19,8 @@ private func perfLog(_ msg: String) -> Bool {
 
 struct ClipboardPopup: View {
     var monitor: ClipboardMonitor
-    var onCopyAndClose: (String) -> Void = { content in
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(content, forType: .string)
+    var onCopyAndClose: (ClipboardPayload) -> Void = { payload in
+        payload.write(to: .general)
         ClipboardPopupToggle.toggle()
     }
     var onDismiss: () -> Void = { ClipboardPopupToggle.toggle() }
@@ -77,12 +76,16 @@ struct ClipboardPopup: View {
         switch browser.handleKeyboard(action, focus: focus) {
         case .passThrough: return false
         case .dismiss: onDismiss()
-        case .copyAndClose(let content): onCopyAndClose(content)
+        case .copyAndClose(let id): copyAndClose(id)
         case .update(let focus, let reveal):
             if focus { applyBrowserFocus(selectQuery: action == .focusSearch) }
             if reveal { revealRequest = UUID() }
         }
         return true
+    }
+
+    private func copyAndClose(_ id: UUID) {
+        if let item = items.first(where: { $0.id == id }) { onCopyAndClose(item.payload) }
     }
 
     private func refreshTagLookup() {
@@ -128,7 +131,7 @@ struct ClipboardPopup: View {
             }
             ClipboardBrowserFooter(hasSelection: selected != nil, count: results.count, focus: inputFocus,
                                    hasQuery: !browser.query.isEmpty, isPreviewing: isPreviewing, togglePreview: togglePreview,
-                                   copy: { if let selected { onCopyAndClose(selected.content) } },
+                                   copy: { if let selected { onCopyAndClose(selected.payload) } },
                                    unseenCaptureCount: browser.unseenCaptureCount, jumpToLatest: summon)
         }
         .clipboardShortcutHelp(isPresented: browser.transientLayer == .help, close: closeHelp)

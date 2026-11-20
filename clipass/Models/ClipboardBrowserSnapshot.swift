@@ -8,5 +8,6 @@ extension ClipboardBrowserState.Item {
         timestamp = item.timestamp
         isPinned = item.isPinned
         tagNames = (tagLookup.tagsByItem[item.id] ?? []).map(\.name)
+        isImage = item.isImage
     }
 }
