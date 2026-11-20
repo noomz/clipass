@@ -128,10 +128,7 @@ final class ClipboardDragTests: XCTestCase {
         host.frame = NSRect(x: 0, y: 0, width: 300, height: 80)
         window.contentView = host
         window.orderFront(nil)
-        defer {
-            window.orderOut(nil)
-            ClipboardDragMonitor.shared.remove(item.id, from: window)
-        }
+        defer { window.orderOut(nil) }
         host.layoutSubtreeIfNeeded()
         RunLoop.current.run(until: Date().addingTimeInterval(0.15))
 
@@ -148,8 +145,6 @@ final class ClipboardDragTests: XCTestCase {
         defer {
             left.orderOut(nil)
             right.orderOut(nil)
-            ClipboardDragMonitor.shared.remove(item.id, from: left)
-            ClipboardDragMonitor.shared.remove(item.id, from: right)
         }
         RunLoop.current.run(until: Date().addingTimeInterval(0.2))
 
@@ -174,15 +169,38 @@ final class ClipboardDragTests: XCTestCase {
         window.contentView = NSView(frame: NSRect(x: 0, y: 0, width: 200, height: 160))
         window.contentView?.addSubview(scroll)
         window.orderFront(nil)
-        defer {
-            window.orderOut(nil)
-            ClipboardDragMonitor.shared.remove(item.id, from: window)
-        }
+        defer { window.orderOut(nil) }
         row.layoutSubtreeIfNeeded()
         RunLoop.current.run(until: Date().addingTimeInterval(0.2))
 
         XCTAssertNil(ClipboardDragMonitor.shared.rowID(in: window, at: NSPoint(x: 40, y: 110)),
                      "a row outside the list was a drag target")
+    }
+
+    @MainActor
+    func testScrollingMovesTheDragTargetWithoutRelayout() {
+        let item = ClipboardItem(content: "stored secret")
+        let window = NSWindow(contentRect: NSRect(x: 500, y: 300, width: 200, height: 80),
+                              styleMask: [.borderless], backing: .buffered, defer: false)
+        let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 200, height: 80))
+        let document = NSView(frame: NSRect(x: 0, y: 0, width: 200, height: 200))
+        let row = NSHostingView(rootView: ClipboardBrowserRow(
+            item: item, previewText: "stored secret", tags: [], isSelected: false, isHovered: false
+        ) { EmptyView() }.clipboardDragHost())
+        row.frame = NSRect(x: 0, y: 0, width: 200, height: 40)
+        document.addSubview(row)
+        scroll.documentView = document
+        window.contentView = scroll
+        window.orderFront(nil)
+        defer { window.orderOut(nil) }
+        row.layoutSubtreeIfNeeded()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+
+        let point = NSPoint(x: 40, y: 20)
+        XCTAssertEqual(ClipboardDragMonitor.shared.rowID(in: window, at: point), item.id)
+        scroll.contentView.scroll(to: NSPoint(x: 0, y: 40))
+        XCTAssertNil(ClipboardDragMonitor.shared.rowID(in: window, at: point),
+                     "a scrolled row stayed under the pointer")
     }
 
     @MainActor
