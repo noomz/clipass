@@ -1,5 +1,25 @@
 # Release Notes
 
+## v1.7.0
+
+Image support. clipass now keeps images you copy, alongside text.
+
+### Changes
+
+- **Image history** — screenshots copied to the clipboard and images copied from a browser or other app are saved to history. Rows show a thumbnail and a label with the pixel size, such as "Image 1440×900". Search for "image" to find them.
+- **Image preview** — Space or ⌘P shows the full image with its source app, time, tags, and pixel size.
+- **Copy images back** — Copy, Return, and the row menu put the image back on the clipboard as PNG, with TIFF for apps that ask for it.
+- **Duplicates** — copying the same image again moves its row to the top instead of adding a new one.
+- **Undo** — Clear recent history and Undo keep image rows too.
+
+### Notes
+
+- When a copy contains both text and an image (for example a file copied in Finder or a spreadsheet cell), clipass keeps the text, as before.
+- Transform rules, ignore patterns, and hooks apply only to text. Ignored apps and password-manager copies are skipped for images too.
+- Images larger than 20 MB are not saved. Image items cannot be edited and do not offer Copy As or custom actions.
+
+---
+
 ## v1.6.0
 
 Redesigned clipboard browser. The menu bar popover and the overlay now share one layout, one search, and one keyboard workflow.
