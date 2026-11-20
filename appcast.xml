@@ -6,6 +6,14 @@
         <description>clipass update feed</description>
         <language>en</language>
         <item>
+            <title>Version 1.7.0</title>
+            <pubDate>Fri, 20 Nov 2026 02:44:40 GMT</pubDate>
+            <sparkle:version>19</sparkle:version>
+            <sparkle:shortVersionString>1.7.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/noomz/clipass/releases/download/v1.7.0/clipass-v1.7.0-macos-arm64.dmg" sparkle:edSignature="PS4p8VH/CZ7G16kFX1mgol2t2mayryJYqpknP2MzhTTgfx39gYPXHp6S7HicAgpBcwvkp9iZ3f4cPK1zp2F5CQ==" length="2732989" type="application/octet-stream" />
+        </item>
+        <item>
             <title>Version 1.6.0</title>
             <pubDate>Thu, 19 Nov 2026 12:56:58 GMT</pubDate>
             <sparkle:version>18</sparkle:version>
