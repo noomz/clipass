@@ -12,6 +12,7 @@ clipass lives in your menu bar, monitors the system clipboard, stores text and i
 
 - **Clipboard History** - Stores up to 100 recent text and image items with one-click re-copy
 - **Images** - Captures images copied to the clipboard, such as screenshots and a browser's Copy Image. Image rows show a thumbnail, the preview shows the full image and its pixel size, and Copy puts the image back on the clipboard. A copy that also carries text, such as a file copied in Finder, is stored as text. Images skip transform rules, ignore patterns, and hooks, and images larger than 20 MB are not stored
+- **Drag and drop** - Drag a history row out of the menu-bar popover or the overlay and drop it into another app. Text drops as text, an existing file path also drops as that file, and an image drops as the image. The drag uses the stored item, not the redacted row preview, and it does not replace the clipboard unless you Copy
 - **Global Hotkey** - `Cmd+Shift+V` to open the popup (customizable)
 - **Search** - Real-time filtering across your clipboard history
 - **Recent and Pinned Tabs** - Recent shows all history newest first; pin important entries to list them in the Pinned tab; pinned items are exempt from auto-cleanup and max-items pruning
