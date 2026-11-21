@@ -1,5 +1,18 @@
 # Release Notes
 
+## v1.8.0
+
+Drag a history row into another app.
+
+### Changes
+
+- **Drag out of either view** — drag a row from the menu-bar popover or the overlay into another app.
+- **The stored item is what drops** — text drops as text. An existing file path also drops as that file. An image drops as the image. The redacted row preview is not the payload.
+- **Clipboard stays put** — a drag does not replace the system clipboard.
+- **The source stays up until the drop** — the window does not close while the drag is in progress. A completed overlay drop does not hand focus back to the app that was in front before the overlay opened.
+
+---
+
 ## v1.7.0
 
 Image support. clipass now keeps images you copy, alongside text.
